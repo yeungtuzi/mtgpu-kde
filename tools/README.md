@@ -1,5 +1,7 @@
 # tools
 
+> 历史工具。半屏问题已解决，本目录仅作排查记录保留。
+
 ## set-full-damage
 
 在 KWin 已经运行时，把 active primary plane 的 `FB_DAMAGE_CLIPS` 持续设置为

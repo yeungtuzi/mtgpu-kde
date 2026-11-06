@@ -112,7 +112,7 @@ apt-mark hold libpipewire-0.3-dev libpipewire-0.3-0t64 libspa-0.2-dev \
 | 会话 | ✅ GDM 自动登录 `Plasma 6.8 (kde6-mtgpu)`；`kwin_wayland`、`plasmashell`、`kded6`、`powerdevil` 均运行 |
 | ICC | ✅ `kscreenctl` 挂载 ICC 成功并持久化 |
 | EDR | ✅ `Allow EDR: always`；HDR 内容 headroom 实测待做 |
-| 显示扫描输出 | ❌ 半屏（KWin 特有）；KWin 6.8.1 vanilla 同样半屏，移除 `FB_DAMAGE_CLIPS` 后变全屏黑，见 `troubleshooting-half-screen.md` |
+| 显示扫描输出 | ✅ 已解决 |
 
 ## 6. 会话/系统集成（都是增量、可回退）
 
@@ -133,7 +133,7 @@ apt-mark hold libpipewire-0.3-dev libpipewire-0.3-0t64 libspa-0.2-dev \
 * `powerdevil` 必须运行，KWin 才会通过 `kde_external_brightness_v1` 拿到 brightness device；
   有了它 `Capability::Edr` 才会出现（`kscreenctl` 显示 `Allow EDR: always`）。
 * `env.sh` 里当前保留的实验变量：`KWIN_DRM_PREFER_COLOR_DEPTH=24`、
-  `KWIN_FORCE_SW_CURSOR=1`（半屏问题排查用，见 troubleshooting 文档）。
+  `KWIN_FORCE_SW_CURSOR=1`（均为历史排查遗留，可按需移除）。
 
 ## 7. 已知坑
 
@@ -165,8 +165,7 @@ apt-mark hold libpipewire-0.3-dev libpipewire-0.3-0t64 libspa-0.2-dev \
 ## 8. 本地 KWin 补丁（未提交上游）
 
 * `src/core/renderdevice.cpp`：Vulkan `std::expected` 兼容（若不用新 Vulkan-Headers 时需要）。
-* `src/core/outputlayer.cpp`：优先选择 opaque / 8bpc 格式（排查 mtgpu 半屏用；
-  目前**没有解决问题**，保留作实验记录，正式方案待定）。
+* `src/core/outputlayer.cpp`：优先选择 opaque / 8bpc 格式（历史排查遗留的实验改动）。
 
 ## 9. 旧版已知坑
 

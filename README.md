@@ -2,7 +2,7 @@
 
 > ## ⚠️ 警告：试验性支持，尚未进行长期稳定性验证
 >
-> 本项目的 KDE Plasma 6.8 构建、EDR 与半屏规避**均处于试验阶段**。
+> 本项目的 KDE Plasma 6.8 构建与 EDR **均处于试验阶段**。
 > 没有做过长时间连续运行、反复会话切换、休眠唤醒、多显示器插拔等稳定性验证。
 > **不要用于生产环境，也不要作为唯一可用的桌面环境。**
 > 使用前请确认已掌握 [CONFIG.md](CONFIG.md) 里的回退方法（随时可退回 GNOME）。
@@ -21,11 +21,9 @@
 ## 配置指南
 
 **装完先看 [CONFIG.md](CONFIG.md)**：输入法（用 fcitx5，不要用 ibus-rime）、
-半屏/黑屏规避、显示与 EDR 设置、回退方法都在里面。
+显示与 EDR 设置、回退方法都在里面。
 
-| 工作状态 | 典型故障（半屏） |
-|---|---|
-| ![](screenshots/plasma6-working-2880x1800-edr.jpg) | ![](screenshots/failure-half-screen.jpg) |
+![工作状态：2880×1800、200% 缩放、119.93Hz、EDR 已启用](screenshots/plasma6-working-2880x1800-edr.jpg)
 
 ## 关键结论（2026-11-05 修正）
 
@@ -53,8 +51,7 @@
 * [notes/edr-findings-6.8.md](notes/edr-findings-6.8.md) —— KWin 6.8 的 EDR 实现与验证方法
 * [notes/edr-brightness-semantics.md](notes/edr-brightness-semantics.md) —— 物理亮度 / SDR 白 / headroom 的映射设计
 * [notes/hdr-driver-findings.md](notes/hdr-driver-findings.md) —— 驱动能力实测（P0，仍有效）
-* [notes/troubleshooting-half-screen.md](notes/troubleshooting-half-screen.md) —— KWin 半屏问题的证据与排查
-* [CONFIG.md](CONFIG.md) —— 安装后配置清单（fcitx5 / 半屏 / EDR）
+* [CONFIG.md](CONFIG.md) —— 安装后配置清单（fcitx5 / EDR / 回退）
 * [notes/packaging-deb.md](notes/packaging-deb.md) —— 把 /opt/kde6 打成 .deb + meta 包的方案
 * [notes/lowload-baseline.md](notes/lowload-baseline.md) —— 机器低负载基线
 

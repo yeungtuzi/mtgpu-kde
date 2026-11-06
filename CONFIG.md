@@ -2,7 +2,7 @@
 
 > ## ⚠️ 警告：试验性支持，尚未进行长期稳定性验证
 >
-> 本项目的 KDE Plasma 6.8 构建、EDR 与半屏规避**均处于试验阶段**。
+> 本项目的 KDE Plasma 6.8 构建与 EDR **均处于试验阶段**。
 > 没有做过长时间连续运行、反复会话切换、休眠唤醒、多显示器插拔等稳定性验证。
 > **不要用于生产环境，也不要作为唯一可用的桌面环境。**
 > 使用前请确认已掌握 [CONFIG.md](CONFIG.md) 里的回退方法（随时可退回 GNOME）。
@@ -28,7 +28,7 @@
 sudo dpkg -i kde6-mtgpu-*.deb
 ```
 
-装完不要立刻切换会话，先做完第 2、3 节，否则会以错误的输入法与半屏状态进入桌面。
+装完不要立刻切换会话，先做完第 2 节，否则会以错误的输入法进入桌面。
 
 ---
 
@@ -104,80 +104,7 @@ fcitx5-diagnose | head -40
 
 ---
 
-## 3. 半屏 / 黑屏问题（KWin + mtgpu）
-
-### 现象
-
-![典型故障：只有左半屏有画面，右半屏纯黑](screenshots/failure-half-screen.jpg)
-
-- 物理面板只显示**左半边**桌面，右半边黑；光标有时可见、有时撕裂；
-- 换 2560×1600、1920×1200、60Hz 都一样；
-- 缩放 100% / 160% 都一样；关掉 EDR、清空 ICC 也一样。
-
-**关键证据**：用 kmsgrab 直接抓 KMS primary plane，拿到的是**完整的 2880×1800 桌面**。
-
-```sh
-sudo ffmpeg -hide_banner -f kmsgrab -i - \
-  -vf "hwdownload,format=rgb0" -frames:v 1 /tmp/scan-rgb0.png
-```
-
-也就是说 KWin 画得是完整的、送进 KMS 的 framebuffer 也是完整的，
-**问题出在 KMS → mtdisp → 面板这一段**，不是 KWin 少画了一半。
-同机器同模式下 GNOME（mutter）显示完整，说明是 KWin 与 mtgpu 的组合问题。
-
-### 根因
-
-KWin 在每次 atomic commit 时会给 primary plane 设置 `FB_DAMAGE_CLIPS`，值为 `0`
-（语义是"整帧"）：
-
-```cpp
-// kwin/src/backends/drm/drm_pipeline.cpp
-if (plane->fbDamage.isValid()) {
-    commit->addProperty(plane->fbDamage, 0);
-}
-```
-
-mtdisp 把 `0` 错误地解释成了**半宽**，于是只扫描左半边。
-
-- 保留该属性（0）→ 左半屏
-- 完全移除该属性 → 全屏黑（连左半都没有，说明该属性是 mtgpu 更新 plane 的必要条件）
-- **给它一个覆盖整帧的真实 blob** → 正常
-
-### 规避
-
-仓库自带 `tools/set-full-damage`，在 KWin 运行时把 `FB_DAMAGE_CLIPS` 持续设成
-`drm_mode_rect{0,0,w,h}`：
-
-```sh
-gcc -O2 -o set-full-damage tools/set-full-damage.c $(pkg-config --cflags --libs libdrm)
-sudo ./set-full-damage      # Ctrl-C 停止
-```
-
-设置后若画面恢复完整，即确认是 `0` 值的语义问题。长期方案是在 KWin 的
-`DrmPipeline` 里改用同样的 full-rect blob（而不是 0）。
-
-### 如果还是黑屏
-
-按顺序试：
-
-1. 确认走的是 `/opt/kde6` 的 KWin，不是系统 `/usr/bin/kwin_wayland`：
-   `readlink -f $(which kwin_wayland)`
-2. `journalctl -b -u gdm -n 100` 与 `~/.local/share/kwin/*.log` 找 plane/format 报错
-3. 临时关闭 direct scanout：`KWIN_DRM_NO_DIRECT_SCANOUT=1`（只影响性能，不影响正确性）
-4. 换 60Hz 先确认链路通，再回到 120Hz
-
-### 回退到 GNOME
-
-整个过程不改 GNOME。回退只需：
-
-```sh
-sudo sed -i 's/^Session=.*/Session=ubuntu/' /var/lib/AccountsService/users/$USER
-sudo systemctl restart gdm
-```
-
----
-
-## 4. 显示与色彩（EDR）
+## 3. 显示与色彩（EDR）
 
 工作状态参考图（见文首）使用的设置：
 
@@ -204,9 +131,8 @@ KWin 6.8 内置 EDR，**不需要**给 KWin 打补丁。它会在「有 brightne
 
 ---
 
-## 5. 已知限制
+## 4. 已知限制
 
-- 半屏问题是 **KWin × mtgpu** 的组合 bug，`set-full-damage` 是运行时规避；
   根治要么改 KWin（换成 full-rect blob），要么等驱动侧修 `FB_DAMAGE_CLIPS` 的 0 值语义。
 - 硬件 HDR 不可用，只有 EDR。
 - 全部构建在 `/opt/kde6`，不覆盖系统 `/usr`；但**会话级**配置（`im-config`、
