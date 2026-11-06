@@ -20,9 +20,7 @@
 
 ## 关键结论（2026-11-05 修正）
 
-* 上一版交接文档（`HANDOFF.md` 早先内容）说"最新稳定版是 5.27、走路线 C"是**错的**：
-  Ubuntu 24.04 的 apt 源里确实只有 Plasma 5.27，但 KDE 最新稳定版是 **Plasma 6.8.x**（6.8.0 于 2026-10-14 发布）。
-  本项目按用户要求使用**最新稳定版 6.8.2**，全部从源码构建。
+* 本项目只做 **Plasma 6.8.2**，全部从源码构建。
 * KWin 6.8 **已经内置 EDR 支持**，不再需要"给 KWin 打补丁解除 HDR 元数据限制"：
   * `drm_output.cpp` 在「有 brightnessDevice + 内屏 + 不支持标准 HDR」时直接置 `Capability::Edr`；
   * `compositor.cpp` 会按屏幕上 HDR 内容的 `maxHdrLuminance/referenceLuminance` 动态提升"人工 HDR headroom"（上限 3×，按亮度余量封顶）；
@@ -42,7 +40,6 @@
 
 ## 文档
 
-* [HANDOFF.md](HANDOFF.md) —— 环境事实与总览（顶部有 2026-11-05 修正）
 * [notes/build-6.8.md](notes/build-6.8.md) —— 从源码构建的完整步骤、路径、日志
 * [notes/edr-findings-6.8.md](notes/edr-findings-6.8.md) —— KWin 6.8 的 EDR 实现与验证方法
 * [notes/edr-brightness-semantics.md](notes/edr-brightness-semantics.md) —— 物理亮度 / SDR 白 / headroom 的映射设计
