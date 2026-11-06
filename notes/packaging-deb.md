@@ -75,5 +75,5 @@ DESTDIR=/tmp/stage/<pkg> cmake --install <build-dir>   # 或用 manifest 过滤
   `libstdc++`/`libgcc` 或改为静态。
 * Qt/KF6 的插件路径靠 `env.sh`，包本身不改系统环境；会话桌面文件的 `Exec` 指向
   `/opt/kde6/bin/plasma6-session`。
-* 如果以后为了修半屏而 patch KWin，`.deb` 的 `kde6-mtgpu-kwin` 必须带 patch 说明，
+* 如果以后为了让 `.deb` 匹配特定 KWin 行为而 patch，必须带 patch 说明，
   并在 GitHub fork 同步源码。
