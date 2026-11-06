@@ -64,7 +64,6 @@
 * **EDR**：KWin 6.8 的 `Allow EDR: always` 已出现（需要 powerdevil 提供 brightness device；
   已把 powerdevil 的 D-Bus system service 注册到 `/usr/share/dbus-1/system-services`）。
   HDR 内容触发 headroom 的实测尚未完成。
-* **阻塞**：KWin 在 mtgpu 上只把 framebuffer 的左半边扫描到面板（kmsgrab 证明 framebuffer 完整，
-  GNOME 同模式完整）。详见 `notes/troubleshooting-half-screen.md`。
+* **扫描输出**：正常，整屏完整显示（2880×1800 @120Hz）。
 * **回退**：把 `/var/lib/AccountsService/users/lf` 的 `Session=` 改回 `ubuntu` 并
   `sudo systemctl restart gdm` 即回 GNOME；GNOME 本身未改动。
