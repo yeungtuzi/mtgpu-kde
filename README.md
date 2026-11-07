@@ -54,6 +54,7 @@
 * [CONFIG.md](CONFIG.md) —— 安装后配置清单（fcitx5 / EDR / 回退）
 * [notes/packaging-deb.md](notes/packaging-deb.md) —— 把 /opt/kde6 打成 .deb + meta 包的方案
 * [notes/lowload-baseline.md](notes/lowload-baseline.md) —— 机器低负载基线
+* [notes/network-tray-6.8.md](notes/network-tray-6.8.md) —— 补编 plasma-nm / qtkeychain / ModemManagerQt，修复 Wi-Fi 设置与系统托盘缺失
 
 当前状态（2026-11-05 20:30）：
 
