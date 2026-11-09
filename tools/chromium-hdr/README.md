@@ -136,3 +136,20 @@ Chromium 产物是自包含目录，安装即拷出 `out/hdr` 中运行所需文
   否则 absl 哈希生成 `aesd` 指令，运行时 SIGILL；
 * `use_siso=false`（siso 同样受 Go 运行时影响）；
 * sysroot 需补 `libdrm` 头文件。
+
+## 11. 自建工具链（`tools/rust/build_rust.py`）在 aarch64 宿主的额外坑
+
+上游该脚本只考虑 x86_64 宿主，aarch64 上需额外处理：
+
+1. **`pinned-clang` 是 x86-64 二进制** → 用 wrapper 指向系统 `clang-21`；
+2. **内置 cmake 3.26 太旧**（LLVM 24 要求 ≥3.31）→ pip 从清华镜像装
+   `cmake>=3.31` 覆盖内置路径；
+3. **`CMAKE_SYSROOT` 指向 amd64 Debian sysroot** → aarch64 宿主必须跳过这两处
+   （`tools/clang/scripts/build.py` 约 548 与 1289 行），否则找不到 `Scrt1.o`/`libgcc`；
+4. **网络**：`commondatastorage.googleapis.com` 直连不可达，可用
+   `proxychains4` + SOCKS5 兜底（优先级：国内镜像 → 官方 CDN → 代理）；
+5. LLVM monorepo 全量克隆 ~10 GB；可用
+   `git clone --filter=blob:none --no-checkout` + `git checkout <sha>` 大幅减少流量。
+
+成功路径：`build_rust.py --stage-1 --build-crubit` 会产出与本仓库 Rust 代码
+完全匹配的 aarch64 工具链（含 `cc_bindings_from_rs`）。
