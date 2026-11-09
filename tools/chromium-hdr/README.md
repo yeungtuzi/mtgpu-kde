@@ -153,3 +153,17 @@ Chromium 产物是自包含目录，安装即拷出 `out/hdr` 中运行所需文
 
 成功路径：`build_rust.py --stage-1 --build-crubit` 会产出与本仓库 Rust 代码
 完全匹配的 aarch64 工具链（含 `cc_bindings_from_rs`）。
+
+## 12. LLVM 编译阶段在 aarch64 宿主的坑（续）
+
+1. **clang-21 编 LLVM-24 的 RISCV 后端会自身崩溃**（frontend signal）→ 把
+   `tools/clang/scripts/build.py` 的 `targets` 裁成 `'AArch64;X86'`
+   （rust 只要 AArch64；顺带少编 500+ 个对象）。
+2. **脚本按 x86_64 GCC 16 拼头文件路径**（`/usr/lib64/gcc/x86_64-pc-linux-gnu/16/
+   ../../../../include/c++/16`）。本机没有 `/usr/lib64`，路径无法规范化 →
+   `sudo mkdir -p /usr/lib64/gcc/x86_64-pc-linux-gnu/16` 并
+   `ln -s /usr/include/c++/15 /usr/include/c++/16`。
+   本机实际 g++ 是 **15**，头文件应指向 15 而不是 13。
+3. wrapper 里显式加
+   `--gcc-install-dir=/usr/lib/gcc/aarch64-linux-gnu/15`
+   `-isystem /usr/include/c++/15 -isystem /usr/include/aarch64-linux-gnu/c++/15`。
