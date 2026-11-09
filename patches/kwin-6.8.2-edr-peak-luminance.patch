@@ -1,0 +1,42 @@
+--- a/src/backends/drm/drm_output.cpp
++++ b/src/backends/drm/drm_output.cpp
+@@ -440,10 +440,8 @@
+ {
+     const bool effectiveHdr = next.highDynamicRange && (capabilities() & Capability::HighDynamicRange);
+     const bool effectiveWcg = next.wideColorGamut && (capabilities() & Capability::WideColorGamut);
+-    double brightnessFactor = 1.0;
+-    if ((!next.brightnessDevice && next.allowSdrSoftwareBrightness) || effectiveHdr) {
+-        brightnessFactor = next.currentBrightness.value_or(next.brightnessSetting);
+-    }
++    // HDR-EDR patch: slider always drives the SDR white point (software), hardware stays at max
++    double brightnessFactor = next.currentBrightness.value_or(next.brightnessSetting);
+     if (!next.brightnessDevice || next.brightnessDevice->usesDdcCi() || effectiveHdr) {
+         brightnessFactor *= next.currentDimming;
+     }
+@@ -493,6 +491,8 @@
+             maxLuminance = maxAverageLuminance;
+             maxReferenceLuminance = maxAverageLuminance;
+             minLuminance = iccProfile->relativeBlackPoint().value_or(0) * maxAverageLuminance;
++            // HDR-EDR patch: advertise the panel peak instead of the hardcoded 200 nits
++            maxLuminance = next.maxPeakBrightnessOverride.value_or(maxLuminance);
+             transferFunction = TransferFunction(TransferFunction::gamma22, minLuminance * next.artificialHdrHeadroom, maxLuminance * next.artificialHdrHeadroom);
+         }
+         break;
+@@ -516,6 +516,8 @@
+             maxReferenceLuminance = next.referenceLuminance;
+         } else {
+             // TODO get luminance values from EDID?
++            // HDR-EDR patch: advertise the panel peak instead of the hardcoded 200 nits
++            maxLuminance = next.maxPeakBrightnessOverride.value_or(maxLuminance);
+             transferFunction = TransferFunction(TransferFunction::gamma22, minLuminance * next.artificialHdrHeadroom, maxLuminance * next.artificialHdrHeadroom);
+         }
+         break;
+@@ -710,7 +712,7 @@
+         }
+         constexpr double minLuminance = 0.04;
+         const double effectiveBrightness = (minLuminance + brightnessFactor) * newArtificialHdrHeadroom - minLuminance;
+-        m_state.brightnessDevice->setBrightness(effectiveBrightness);
++        m_state.brightnessDevice->setBrightness(1.0); // HDR-EDR patch: hard-pin panel luminance to max
+     }
+     State next = m_state;
+     next.currentBrightness = newBrightness;

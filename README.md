@@ -25,16 +25,24 @@
 
 ![工作状态：2880×1800、200% 缩放、119.93Hz、EDR 已启用](screenshots/plasma6-working-2880x1800-edr.jpg)
 
-## 关键结论（2026-11-05 修正）
+## 关键结论（2026-11-09 修正）
 
-* 本项目只做 **Plasma 6.8.2**，全部从源码构建。
-* KWin 6.8 **已经内置 EDR 支持**，不再需要"给 KWin 打补丁解除 HDR 元数据限制"：
+* 本项目只做 **Plasma 6.8.2**，全部从源码构建；当前版本 **6.8.2-mtgpu3**。
+* KWin 6.8 **内置 EDR 支持**，不需要补丁去"打开 EDR"：
   * `drm_output.cpp` 在「有 brightnessDevice + 内屏 + 不支持标准 HDR」时直接置 `Capability::Edr`；
   * `compositor.cpp` 会按屏幕上 HDR 内容的 `maxHdrLuminance/referenceLuminance` 动态提升"人工 HDR headroom"（上限 3×，按亮度余量封顶）；
   * 每个输出有 `edrPolicy`（Always/Never），默认 Always。
   * 见 `notes/edr-findings-6.8.md`。
-* 因此本项目不再需要补丁 KWin 来"打开 EDR"；要做的是**构建 6.8、跑起来、用 HDR 内容验证 EDR**。
-  若后续为了调参确实要改 KWin，再 fork 上游并同步到 GitHub。
+* 但 EDR 分支的**峰值亮度是硬编码 200 nit**：`maxPeakBrightnessOverride` 只在 HDR 分支生效，
+  于是合成器对客户端通告 `max=200`，HDR 高光全被裁到 SDR 白，观感上"没有 HDR"。
+  * 诊断与实测见 `notes/edr-peak-luminance-6.8.md`；
+  * 修复补丁 `patches/kwin-6.8.2-edr-peak-luminance.patch`（用 `tools/apply-kwin-edr.sh` 应用）；
+  * 补丁同时把亮度滑条改成**软件白点**、硬件背光恒定满，符合 OLED EDR 的用法。
+* 补丁后 eDP-1 通告 `max=500`、`reference` 随滑条变化（100%→200，40%→83），
+  Chrome 播放 PQ 测试图可见 500 nit 高光明显亮于 SDR 白（1000 nit 因面板峰值被裁到 500）。
+* 客户端现状：Chrome 157 可用（ANGLE + MTT Mesa GLES）；mpv 0.42 协议层可用，
+  但本机 MT 驱动的 Vulkan Wayland WSI 报 `VK_ERROR_UNKNOWN`，且其 EGL 初始化选不到 MTT GL，
+  暂时无法出画——详见 `notes/edr-peak-luminance-6.8.md` 第 5 节。
 
 ## 构建策略
 
@@ -49,6 +57,9 @@
 
 * [notes/build-6.8.md](notes/build-6.8.md) —— 从源码构建的完整步骤、路径、日志
 * [notes/edr-findings-6.8.md](notes/edr-findings-6.8.md) —— KWin 6.8 的 EDR 实现与验证方法
+* [notes/edr-peak-luminance-6.8.md](notes/edr-peak-luminance-6.8.md) —— 峰值亮度硬编码 200 的诊断、补丁与实测（2026-11-09）
+* [patches/kwin-6.8.2-edr-peak-luminance.patch](patches/kwin-6.8.2-edr-peak-luminance.patch) + [tools/apply-kwin-edr.sh](tools/apply-kwin-edr.sh) —— EDR 峰值亮度补丁
+* [tools/edr-probe](tools/edr-probe) —— 读取 `wp_color_management_v1` 通告的 max/reference 的小工具
 * [notes/edr-brightness-semantics.md](notes/edr-brightness-semantics.md) —— 物理亮度 / SDR 白 / headroom 的映射设计
 * [notes/hdr-driver-findings.md](notes/hdr-driver-findings.md) —— 驱动能力实测（P0，仍有效）
 * [CONFIG.md](CONFIG.md) —— 安装后配置清单（fcitx5 / EDR / 回退）
@@ -64,7 +75,8 @@
   `iccProfilePath` 已持久化；`kscreenctl list-outputs` 显示 ICC profile 已挂到 eDP-1。
 * **EDR**：KWin 6.8 的 `Allow EDR: always` 已出现（需要 powerdevil 提供 brightness device；
   已把 powerdevil 的 D-Bus system service 注册到 `/usr/share/dbus-1/system-services`）。
-  HDR 内容触发 headroom 的实测尚未完成。
+  2026-11-09 完成实测：打上峰值亮度补丁后，eDP-1 通告 `max=500 nit`、`reference` 随滑条变化，
+  Chrome 播放 PQ 测试图可见 500 nit 高光明显亮于 SDR 白。
 * **扫描输出**：正常，整屏完整显示（2880×1800 @120Hz）。
 * **回退**：把 `/var/lib/AccountsService/users/lf` 的 `Session=` 改回 `ubuntu` 并
   `sudo systemctl restart gdm` 即回 GNOME；GNOME 本身未改动。

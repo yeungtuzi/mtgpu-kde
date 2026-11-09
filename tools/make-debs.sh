@@ -8,7 +8,7 @@
 set -euo pipefail
 
 PREFIX=${PREFIX:-/opt/kde6}
-VERSION=${1:-6.8.2-mtgpu2}
+VERSION=${1:-6.8.2-mtgpu3}
 OUTDIR=${OUTDIR:-$HOME/kde6/debs/$VERSION}
 WORK=${WORK:-$HOME/kde6/debs/.stage-$VERSION}
 ARCH=arm64
