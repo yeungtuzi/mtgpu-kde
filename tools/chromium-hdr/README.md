@@ -107,3 +107,32 @@ Chromium 产物是自包含目录，安装即拷出 `out/hdr` 中运行所需文
 
 * WebUI/DevTools 的 TypeScript 产物依赖 tsc，运行期需要 `GODEBUG`（仅构建期）。
 * 上游无 arm64 clang/rust 包，本方案依赖本地 clang 21 + nightly rust。
+
+## 9. 已知阻塞（2026-11，未解决）
+
+在当前 arm64 Linux host 上，Chromium 的 Rust↔C++ 绑定工具 **crubit**
+（`cc_bindings_from_rs`）无法替换：
+
+* 官方工具链只发布 **x86-64** 的 `cc_bindings_from_rs`，且与其自带 rustc
+  （`1edd55dcf`）版本绑定；
+* 若改用原生 aarch64 rustc，crubit 分析 Rust crate 时必然
+  `E0514: found crate compiled by an incompatible version of rustc`；
+* 关掉 crubit 又会缺 `components/cbor` 与 blink `ift_patcher` 所需的生成头文件；
+* 让宿主工具链整体编成 x86_64 需要 x86_64 glibc 开发文件（本机没有），
+  build script 链接会失败。
+
+受影响的 3 个目标：`components/cbor/rust`、`build/rust/std` 的
+`rs_std`/`rs_alloc`/`rs_core` 绑定。
+
+可行但昂贵的出路：
+1. 用 `tools/rust/build_crubit.py` 从源码编 crubit（需先编 LLVM+rustc，约 6–10 小时）；
+2. 等上游提供 arm64 版 clang/rust/crubit 工具链（DEPS 目前没有）。
+
+## 10. 其它环境坑（已验证）
+
+* **Go 1.25 运行时**（`tsc`/`siso`）在本机内核需要
+  `GODEBUG=asyncpreemptoff=1`，否则 SIGSEGV；
+* **A78 无 AES 扩展**：`-mcpu=cortex-a78` 必须加 `+nocrypto`，
+  否则 absl 哈希生成 `aesd` 指令，运行时 SIGILL；
+* `use_siso=false`（siso 同样受 Go 运行时影响）；
+* sysroot 需补 `libdrm` 头文件。
