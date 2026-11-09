@@ -83,6 +83,22 @@ ffmpeg -f lavfi -i "color=c=black:s=1920x1080:r=30:d=10,format=yuv420p10le" \
 
 （509/573/657/722 是 100/203/500/1000 nit 在 10bit limited-range 下的 PQ 码值。）
 
+## 4.2 为什么 Chrome 的高光始终不如 wl_shm 探针
+
+Chromium 的 HDR tone mapping **不用合成器通告的 headroom**：它在
+`viz::SkiaRenderer::FinishDrawingFrame` 里根据"是否 HDR 内容"这个二值标志
+选一个**写死的任意 headroom** 去映射（上游 commit 原文：
+
+> this information (gfx::ContentColorUsage) is binary, and as a result we are
+> forced to choose an arbitrary desired headroom
+
+所以把 KWin 的 `reference` 压到 44 nit（headroom 11×）对 Chrome 也没用，
+它仍按自己的固定值压缩，超出部分裁成白 —— 观感就是"不够亮 + 溢出"。
+相关现象在 KDE bug 510759 也有记录。
+
+结论：要得到 KWin 侧的真实映射效果，必须让客户端把 PQ 直接交给合成器
+（`tools/edr-pattern` 演示的就是这条路；mpv 在驱动补齐 EGL 平台后同理）。
+
 ## 5. 客户端现状
 
 * **Chrome 157**：可用。`--ozone-platform=wayland`，走 ANGLE（MTT Mesa GLES 3.2），
