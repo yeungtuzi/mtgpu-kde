@@ -47,6 +47,19 @@ LUMINANCES min=0.01 max=200 reference=200     ← 客户端只看到 200nit 的�
 
 应用方式：`./tools/apply-kwin-edr.sh $HOME/kde6/src/kwin-6.8.2`（幂等），再按 `build-core-final.sh` 编译。
 
+## 4.1 两种客户端的映射差异（wl_shm 探针 vs Chrome）
+
+用 `tools/edr-pattern`（wl_shm，声明 `max=1000`、`reference=203` 的 PQ surface）实测：
+四条带 **1<2<3<4 全部可分辨**，截图采样为 82 / 104 / 140 / 171（单调递增）。
+
+原因是 KWin 对这块 surface 做**整体压缩**：内容 0–1000 nit 被 tone map 到输出的 0–500，
+所以 1000 nit 落到峰值、500 nit 落到约 250（仍高于 SDR 白 200）。
+
+Chrome 则按 headroom 裁切，1000 nit 的内容直接顶到 500，因此 3 与 4 同色。
+
+两种行为都说明 EDR 生效（带 3 均亮于 SDR 白），差别只在客户端的 tone mapping 策略。
+面板峰值并未被超过。
+
 ## 4. 补丁后实测（eDP-1，maxPeakBrightnessOverride=500）
 
 | 滑条 | LUMINANCES.max | LUMINANCES.reference | 硬件背光 |
