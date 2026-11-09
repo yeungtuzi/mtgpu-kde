@@ -52,6 +52,10 @@
 * 构建工具从源码补齐：CMake 3.31.12（ECM 6.31 要求 ≥3.30）。
 * 系统 apt 只安装"构建期依赖"（dev 头文件等），**不升级/降级厂商（MTT）运行时二进制**；
   对 MTT 源里优先级 1001 的 polkit/libinput/pipewire 已做 pin/hold，避免改动。
+* **本地补丁在编译前自动应用**：`tools/build-core-final.sh` 会在配置 kwin 之前调用
+  `tools/apply-kwin-edr.sh`（幂等）；手工构建时也要先跑一次，否则二进制与发布的不一致。
+  构建脚本：[tools/build-one.sh](tools/build-one.sh)（单组件）、
+  [tools/build-core-final.sh](tools/build-core-final.sh)（kwin 及 Plasma 核心）。
 
 ## 文档
 
@@ -60,6 +64,8 @@
 * [notes/edr-peak-luminance-6.8.md](notes/edr-peak-luminance-6.8.md) —— 峰值亮度硬编码 200 的诊断、补丁与实测（2026-11-09）
 * [patches/kwin-6.8.2-edr-peak-luminance.patch](patches/kwin-6.8.2-edr-peak-luminance.patch) + [tools/apply-kwin-edr.sh](tools/apply-kwin-edr.sh) —— EDR 峰值亮度补丁
 * [tools/edr-probe](tools/edr-probe) —— 读取 `wp_color_management_v1` 通告的 max/reference 的小工具
+* [tools/edr-pattern](tools/edr-pattern) —— 不依赖 GL/Vulkan 的 wl_shm EDR 测试画面
+* [tools/build-core-final.sh](tools/build-core-final.sh) / [tools/build-one.sh](tools/build-one.sh) —— 可复现的 KDE 核心构建（含自动打补丁）
 * [notes/edr-brightness-semantics.md](notes/edr-brightness-semantics.md) —— 物理亮度 / SDR 白 / headroom 的映射设计
 * [notes/hdr-driver-findings.md](notes/hdr-driver-findings.md) —— 驱动能力实测（P0，仍有效）
 * [CONFIG.md](CONFIG.md) —— 安装后配置清单（fcitx5 / EDR / 回退）

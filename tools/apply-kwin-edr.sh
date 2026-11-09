@@ -8,7 +8,14 @@
 set -euo pipefail
 
 SRC=${1:-$HOME/kde6/src/kwin-6.8.2}
-PATCH=$(cd "$(dirname "$0")/.." && pwd)/patches/kwin-6.8.2-edr-peak-luminance.patch
+HERE=$(cd "$(dirname "$0")" && pwd)
+PATCH=${PATCH:-}
+if [ -z "$PATCH" ]; then
+  for c in "$HERE/../patches/kwin-6.8.2-edr-peak-luminance.patch" \
+           "$HERE/patches/kwin-6.8.2-edr-peak-luminance.patch"; do
+    [ -f "$c" ] && PATCH=$c && break
+  done
+fi
 
 [ -d "$SRC" ] || { echo "missing source tree: $SRC"; exit 1; }
 [ -f "$PATCH" ] || { echo "missing patch: $PATCH"; exit 1; }
