@@ -147,7 +147,7 @@
 
 | # | 索取内容 | 用途 |
 |---|---|---|
-| 7 | 官方 **aarch64 工具链**（clang/lld/rust）或允许我们再分发自建工具链 | 我们现在每次都要自建 LLVM+Rust（数小时），且不能随发行版分发 |
+| 7 | ~~官方 aarch64 工具链~~ **已删除** | 我们的 clang/rust 来自 LLVM/Rust 上游源码，与厂商无关；此项应自行解决，不应向厂商索取 |
 | 8 | **Vulkan ICD**（当前完全缺失） | KWin Vulkan 后端、部分游戏/浏览器 GPU 路径 |
 | 9 | **VA-API / 硬解组件**（HEVC/H.264）与许可 | 视频播放与功耗 |
 | 10 | **EGL/GLES 平台支持修复**（`EGL_PLATFORM_WAYLAND` 缺失，已提交探针） | mpv/GTK4 等原生 Wayland 客户端 |
@@ -190,3 +190,7 @@
 | ABI 承诺 | 每次驱动更新重建镜像；用 Btrfs 快照保证可回滚 |
 | Vulkan ICD | 明确"GLES-only"支持矩阵 |
 | 工具链 | 继续自建（我们已有完整管线与文档） |
+
+> 勘误（2026-11-10）：Chromium 与 mtgpu 在**编译期没有任何耦合**：
+> 我们构建的是通用 aarch64 Chromium，只依赖 Wayland/EGL/GBM/DMA-BUF 标准接口；
+> MTT 驱动仅在**运行期**通过 GLVND 提供 EGL/GLES。此前文档中“与 mtgpu 一起编”的表述有误。
