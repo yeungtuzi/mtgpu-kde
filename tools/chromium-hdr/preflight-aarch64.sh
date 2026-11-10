@@ -28,4 +28,15 @@ grep -q "MTGPU_PINNED_CLANG" "$SRC/tools/clang/scripts/build.py" \
 grep -q "target.aarch64-unknown-linux-gnu" "$SRC/tools/rust/config.toml.template" \
   && note "rust config has aarch64 target" "yes" || { note "rust config has aarch64 target" "no"; fail=1; }
 
+
+for f in tools/rust/build_rust.py tools/rust/host_tools.py tools/rust/build_bindgen.py; do
+  case "$f" in
+    *build_rust.py)   pat="mtgpu: use the host architecture" ;;
+    *host_tools.py)   pat="mtgpu: follow the host architecture" ;;
+    *build_bindgen.py) pat="mtgpu: the ncursesw CIPD package" ;;
+  esac
+  grep -q "$pat" "$SRC/$f" && note "$(basename "$f") host-arch patch" "yes" \
+    || { note "$(basename "$f") host-arch patch" "no"; fail=1; }
+done
+
 if [ "$fail" = "0" ]; then echo "PREFLIGHT-OK"; else echo "PREFLIGHT-FAILED"; exit 1; fi

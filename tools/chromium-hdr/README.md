@@ -167,3 +167,39 @@ Chromium 产物是自包含目录，安装即拷出 `out/hdr` 中运行所需文
 3. wrapper 里显式加
    `--gcc-install-dir=/usr/lib/gcc/aarch64-linux-gnu/15`
    `-isystem /usr/include/c++/15 -isystem /usr/include/aarch64-linux-gnu/c++/15`。
+
+## 13. 上游 x86_64 假设清单（arm64 主机必查）
+
+系统性扫了 `tools/rust/*.py`、`tools/rust/*.template`、`tools/clang/scripts/build.py`，
+分类如下（✅ 上游已有 aarch64 分支；🔧 需打补丁；➖ 与本机构建无关）。
+
+| 位置 | 内容 | 状态 |
+|---|---|---|
+| `build_rust.py` `RustTargetTriple()` | 硬返回 `x86_64-unknown-linux-gnu` | 🔧 改为 aarch64 |
+| `build_rust.py` `DownloadDebianSysroot('amd64')` | 下错架构 sysroot | 🔧 按 host 架构选 |
+| `build_rust.py` `AddOpenSSLToEnv()` | CIPD `openssl/linux-amd64` | 🔧 aarch64 跳过，用系统 libssl |
+| `build_bindgen.py` `FetchNcurseswLibrary()` | CIPD `ncursesw/linux-amd64` | 🔧 aarch64 跳过，用系统库 |
+| `host_tools.py` `GetHostDebianSysroot()` | 固定 amd64 sysroot | 🔧 按 host 架构选 |
+| `cargo-config.toml.template` | 只有 `[host.x86_64-unknown-linux-gnu]` | 🔧 补 aarch64 段 |
+| `config.toml.template` | 只有 `[target.x86_64-unknown-linux-gnu]` | 🔧 补 aarch64 段 |
+| `build.py` cmake sysroot / 默认 triple | 已有 `platform.machine() == 'aarch64'` 分支 | ✅ |
+| `build.py` runtimes triples | 列出多架构 | ✅ 我们过滤为仅 aarch64 |
+| `build.py` cmake 下载 `linux-x86_64` | 被 pip cmake 取代 | ➖ |
+| `build.py` DIA/SDK/`x86_64-apple`/`iossim` | Windows/macOS 专用 | ➖ |
+| `build_bindgen`/`build_rust` 的 mac/win CIPD 包 | 非 Linux | ➖ |
+
+### 额外的"隐性 x86 入口"
+
+1. **`pinned-clang` 预编译包只有 x86_64**，且 `build.py` 每次运行都会重新下载覆盖它 →
+   用 `MTGPU_PINNED_CLANG=1` 跳过下载，并把目录内所有可执行文件换成 aarch64（缺的做 fail-fast stub）。
+2. **`cargo-beta`、`rust-std` 等 beta 包**：`build_rust.py` 会按 `RustTargetTriple()` 选择，
+   因此上表第一项修好后它们才会下 aarch64 版本。
+3. **`-Dwarnings`**：Chromium gn 里给 rust 目标的，不适用于 bootstrap；bootstrap 的
+   `build.warnings` 已改为 `warn`。
+
+### 自检
+
+```sh
+tools/chromium-hdr/preflight-aarch64.sh          # 架构/ELF/补丁三合一检查
+grep -rn "x86_64\\|amd64" tools/rust tools/clang/scripts/build.py | grep -v '#'   # 人工复核
+```
