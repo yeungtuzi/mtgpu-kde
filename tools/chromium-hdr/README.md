@@ -203,3 +203,27 @@ Chromium 产物是自包含目录，安装即拷出 `out/hdr` 中运行所需文
 tools/chromium-hdr/preflight-aarch64.sh          # 架构/ELF/补丁三合一检查
 grep -rn "x86_64\\|amd64" tools/rust tools/clang/scripts/build.py | grep -v '#'   # 人工复核
 ```
+
+### 14. 非本机目标清扫（native-only）
+
+除"x86 假设"外，还把所有**非 aarch64-linux 目标**从构建路径里移除：
+
+| 位置 | 改动 |
+|---|---|
+| `tools/clang/scripts/build.py` | aarch64 主机只下载 **arm64** sysroot（不再拉 amd64/i386/arm/riscv64） |
+| `tools/clang/scripts/build.py` `LLVM_TARGETS_TO_BUILD` | `'AArch64'`（原为 9 个后端） |
+| `tools/clang/scripts/build.py` runtimes | 仅 `aarch64-unknown-linux-gnu` |
+| `tools/rust/config.toml.template` | 删除 windows/macOS/x86_64-linux 的 `[target.*]`，仅留 aarch64-linux |
+| `tools/rust/cargo-config.toml.template` | 删除 `[host.x86_64-unknown-linux-gnu]`，仅留 aarch64 |
+| `out/hdr/args.gn` | 显式 `target_os="linux"`、`target_cpu="arm64"` |
+| `pinned-clang` | 目录内已无 x86_64 ELF（缺的做 fail-fast stub） |
+
+保留 `--without-android --without-fuchsia`（`build_rust.py` 在 Linux 上默认加）。
+
+自检：
+
+```sh
+grep -c "^\[target\." tools/rust/config.toml.template      # 期望 1（仅 aarch64）
+grep -c "^\[host\."   tools/rust/cargo-config.toml.template # 期望 1
+grep -n "LLVM_TARGETS_TO_BUILD" -A1 tools/clang/scripts/build.py | head -3
+```

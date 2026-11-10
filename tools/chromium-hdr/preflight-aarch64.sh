@@ -39,4 +39,12 @@ for f in tools/rust/build_rust.py tools/rust/host_tools.py tools/rust/build_bind
     || { note "$(basename "$f") host-arch patch" "no"; fail=1; }
 done
 
+
+tcount=$(grep -c '^\[target\.' "$SRC/tools/rust/config.toml.template" 2>/dev/null)
+note "rust config target sections" "$tcount"
+[ "$tcount" = "1" ] || { echo "  -> expected exactly the aarch64 section"; fail=1; }
+hcount=$(grep -c '^\[host\.' "$SRC/tools/rust/cargo-config.toml.template" 2>/dev/null)
+note "cargo config host sections" "$hcount"
+[ "$hcount" = "1" ] || { echo "  -> expected exactly the aarch64 section"; fail=1; }
+
 if [ "$fail" = "0" ]; then echo "PREFLIGHT-OK"; else echo "PREFLIGHT-FAILED"; exit 1; fi
