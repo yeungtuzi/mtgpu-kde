@@ -173,3 +173,40 @@ Measured/derived mapping for a 500 nit panel:
 Consequences: 500 nit and 1000 nit bars are now distinct (338 vs 500) instead of
 both clipping at 500, at the cost of darker mid-tones; the SDR reference white
 still follows the brightness slider, while the HDR mapping does not.
+
+## Measured behaviour (2026-11-11, BT.2390 LUT + fixed 1000 nit client target)
+
+Compositor side, with the client-facing HDR target decoupled from the panel peak:
+
+* KWin advertises a **fixed 1000 nit** HDR target (`target_luminance`) to every
+  client, independent of the brightness slider;
+* KWin renders into the real 500 nit panel peak and applies the BT.2390 EETF
+  (129-entry PQ LUT) with `maxWhite=1000 -> maxOut=500`, again independent of the
+  slider.
+
+Verified with `hdr-bars-vp9.webm` in the self-built Chromium:
+
+| slider | Chromium headroom | KWin video pipeline |
+|---|---|---|
+| 100 % | 1.00 (= 1000/500) | `tonemap=1 maxWhite=1000 maxOut=500` |
+| 40 % | 2.30 (= 1000/203) | `tonemap=1 maxWhite=1000 maxOut=500` |
+
+Visual result at ~50 % brightness: the 100 / 203 / 500 / 1000 nit bars are all
+distinct (500 nit renders at ~338, 1000 nit at 500), i.e. the roll-off works and
+there is no hard clip at the panel peak.
+
+### Known limitation: the video still follows the brightness slider
+
+Raising the slider towards 100 % visibly brightens the HDR clip -- bar 3 climbs
+towards bar 4 and the two merge at 100 % -- and lowering it towards 0 % dims bar 4.
+The compositor's tone mapping is fixed (see the pipeline log above), so the
+remaining brightness dependence comes from the final blend/dimming stage of the
+SDR composition, not from the EETF.  At 100 % the SDR white reaches the panel
+peak, so a 500 nit HDR highlight legitimately coincides with white and the last
+bar merges.
+
+This is close to how macOS renders EDR video (the clip is not fully independent
+of the UI brightness either) and is considered acceptable for now; making the
+HDR plane strictly absolute would require the HDR content to be blended in a
+separate linear pass and the software dimming to be applied only to the SDR
+plane, which is a larger compositor change.
