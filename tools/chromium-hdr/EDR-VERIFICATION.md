@@ -42,6 +42,9 @@ HEVC, which this build does not decode.)
 - `disp_headroom` comes from `display_color_spaces.GetHdrHeadroom()`, which the
   Wayland backend fills from the compositor's colour-management description.
 - `targeted_headroom == disp_headroom`: the compositor headroom is used in full.
+- `GetHdrHeadroom()` is log2 of the relative luminance: `1.32193` = 2.5x,
+  `2.59074` = 6.02x, both of which are the 500 nit peak at the SDR white of the
+  moment (200 nit at 100 %, 83 nit at 40 %).
 - 3.83 ≈ 318 nit peak with an 83 nit SDR white, consistent with KWin's
   `maxPeakBrightnessOverride=500` / `edrPolicy=always` configuration and the
   current SDR slider position.
@@ -121,7 +124,10 @@ The compositor-side change makes the **output** description report the panel pea
 (`edr-probe`: `TARGET_LUM 500` at 100 % and 40 % brightness), but the value a
 client receives for its own surface still varies: with the same KWin build,
 Chromium logged `headroom=1.32 sdr=200` at 100 % and `headroom=2.59 sdr=83` at
-40 %, i.e. ~264/215 nit.
+40 %.  Those are **log2** values (`DisplayColorSpaces::GetHdrHeadroom()` returns
+`std::log2(hdr_max_luminance_relative_)`), i.e. 2.5x and 6.02x of the SDR white,
+which is exactly 500 nit in both cases.  The earlier "264/215 nit" reading in
+this document was an arithmetic error (treating log2 as linear).
 
 The client description is built in `window.cpp:4572` from
 `output->blendingColor()`, and `blendingColor` is assigned from
