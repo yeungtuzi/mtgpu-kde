@@ -128,3 +128,18 @@ is `log2(500/200) = 2.5x`.  At 40 % brightness the same peak gives
 `log2(500/83) = 2.59x`.  No surface-level gap exists; the earlier claim came
 from reading the log2 value as a linear ratio.
 
+## Reference white follows the slider (outdoor use)
+
+With the KWin patch the slider drives the **SDR reference white** and can reach
+the panel peak, which is the behaviour a user expects when they deliberately
+give up HDR headroom for legibility outdoors:
+
+| slider | reference white | panel peak | headroom |
+|---|---|---|---|
+| 100 % | 500 nit | 500 nit | 1.00x (`GetHdrHeadroom()` = 0) |
+| 40 % | 203 nit | 500 nit | 2.46x (= 1.30 in log2) |
+
+Measured with `edr-probe` (`LUMINANCES reference`) and Chromium's
+`[EDR] swap` line (`headroom=0 sdr_nits=500` at 100 %, `headroom=1.30045
+sdr_nits=203` at 40 %).  At 100 % there is no HDR headroom left by design;
+lower the slider to regain it.

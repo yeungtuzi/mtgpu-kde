@@ -1,0 +1,39 @@
+--- a/src/backends/drm/drm_output.cpp
++++ b/src/backends/drm/drm_output.cpp
+@@
+         } else {
+             // TODO get luminance values from EDID?
+             // HDR-EDR patch: advertise the panel peak instead of the hardcoded 200 nits
+             maxLuminance = next.maxPeakBrightnessOverride.value_or(maxLuminance);
++            // mtgpu EDR: the slider drives the SDR reference white and may reach the
++            // panel peak at 100%; the user knowingly trades HDR headroom for outdoor
++            // legibility instead of being capped at the 200 nit default.
++            maxReferenceLuminance = next.maxPeakBrightnessOverride.value_or(maxReferenceLuminance);
+             transferFunction = TransferFunction(TransferFunction::gamma22, minLuminance * next.artificialHdrHeadroom, maxLuminance * next.artificialHdrHeadroom);
+         }
+@@
+         minLuminance,
+         maxAverageLuminance * next.maxPossibleArtificialHdrHeadroom,
+-        maxLuminance * next.maxPossibleArtificialHdrHeadroom,
++        // mtgpu EDR: report the panel peak as the HDR target luminance so clients
++        // derive headroom from the hardware limit instead of a scaled target.
++        next.maxPeakBrightnessOverride.value_or(
++            maxLuminance * next.maxPossibleArtificialHdrHeadroom),
+         nativeColorimetry,
+         sdrColorimetry,
+     });
+--- a/src/core/colorspace.cpp
++++ b/src/core/colorspace.cpp
+@@
+         m_maxAverageLuminance.transform([&](double value) {
+         return value * brightnessFactor;
+     }),
+-        m_maxHdrLuminance.transform([&](double value) {
+-        return value * brightnessFactor;
+-    }),
++        // mtgpu EDR: the panel peak is hardware capability; only the reference
++        // (SDR white) and the average luminance follow the brightness slider.
++        m_maxHdrLuminance,
+         m_masteringColorimetry,
+         m_sdrColorimetry,
+     });
