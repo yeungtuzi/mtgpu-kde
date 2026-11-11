@@ -114,3 +114,29 @@ sanitizer runtime is not part of this build.
 | `x.py dist` (rustc-dev) | ~35 min |
 | Crubit (absl+protobuf+deps) | ~25 min |
 | Chromium `ninja chrome` | 6–10 h |
+
+## Keeping `out/hdr` incrementally buildable
+
+A full Chromium build on this machine is ~9 h, so the build tree is treated as
+a durable artifact:
+
+1. **One ninja at a time.** Check `pgrep -f "ninja.real -j"` before starting;
+   stop with `systemctl stop chromebuild` and wait for exit, never `reset-failed`.
+2. **No reboots while building.** A reboot kills ninja mid-run; the tail of
+   `.ninja_log` is lost and ninja replans tens of thousands of edges.
+3. **`.ninja_log` is backed up** every 10 minutes by the `ninja-log-backup`
+   system unit into `~/chromium-build/ninja-log-backups/` (last 40 kept). If a
+   replan is suspected, compare `wc -l .ninja_log` with `find obj -name '*.o' | wc -l`
+   before accepting the rebuild.
+4. **Do not change global gn args** (ffmpeg branding, target_os, is_debug, ...)
+   for a local fix -- that invalidates every object. Local source edits only
+   rebuild the touched translation units plus the link.
+5. **Keep the tree in one worktree per build.** Switching git branches inside
+   `~/chromium-build/src` only rebuilds the files that actually differ between
+   branches (a few hundred for the ungoogled patch set), which is minutes, not
+   hours -- as long as rules 1-3 hold.
+6. **Snapshot before risky experiments:**
+   `cp -al out/hdr out/hdr.snapshot` is cheap (hardlinks) and lets the tree be
+   restored without a rebuild.
+7. Kernel/compositor work (KWin rebuilds, session restarts) is independent of
+   the Chromium build; it only touches `/opt/kde6` and `systemd --user` units.
