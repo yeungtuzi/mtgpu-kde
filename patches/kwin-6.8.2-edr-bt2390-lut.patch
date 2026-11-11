@@ -1,0 +1,77 @@
+--- a/src/opengl/colormanagement.glsl
++++ b/src/opengl/colormanagement.glsl
+@@
+ uniform float maxTonemappingLuminance;
+ uniform float destinationReferenceLuminance;
+ uniform float maxDestinationLuminance;
++// mtgpu EDR: BT.2390 EETF baked into a 129-entry 1D LUT (PQ domain)
++uniform float tonemapLut[129];
+@@
+-    // apply tone mapping operation (modified Reinhart)
+-    float relativeLuminance = max(luminance / destinationReferenceLuminance, 0.0);
+-    float inputRange = maxTonemappingLuminance / destinationReferenceLuminance;
+-    float outputRange = maxDestinationLuminance / destinationReferenceLuminance;
+-    float v = (outputRange * (1.0 + inputRange) - inputRange) / pow(inputRange, 2.0);
+-    relativeLuminance = relativeLuminance * (1.0 + relativeLuminance * v) / (1.0 + relativeLuminance);
+-    luminance = relativeLuminance * destinationReferenceLuminance;
+-
+-    // convert back to rgb
+-    ICtCp.r = singleLinearToPq(luminance / 10000.0);
++    // apply tone mapping through the precomputed BT.2390 EETF lookup table
++    // (PQ-encoded intensity in, PQ-encoded intensity out, linear interpolation)
++    float lutPos = clamp(ICtCp.r, 0.0, 1.0) * 128.0;
++    int lutIdx = int(floor(lutPos));
++    float lutFrac = lutPos - float(lutIdx);
++    ICtCp.r = mix(tonemapLut[lutIdx], tonemapLut[min(lutIdx + 1, 128)], lutFrac);
++
++    // convert back to rgb
+--- a/src/opengl/glshader.h
++++ b/src/opengl/glshader.h
+@@
+     bool setUniform(const char *name, const QMatrix4x4 &value);
++    bool setUniform(const char *name, const float *values, int count);
+--- a/src/opengl/glshader.cpp
++++ b/src/opengl/glshader.cpp
+@@
++bool GLShader::setUniform(const char *name, const float *values, int count)
++{
++    const int location = uniformLocation(name);
++    if (location < 0) {
++        return false;
++    }
++    glUniform1fv(location, count, values);
++    return true;
++}
++
+@@
+         // do tonemapping
+         setUniform(FloatUniform::MaxTonemappingLuminance, maxWhiteLuminance);
+         setUniform(FloatUniform::MaxDestinationLuminance, maxOutputLuminance);
++        // mtgpu EDR: bake the BT.2390 EETF into a 129-entry PQ-domain LUT
++        // (src 0.05..maxWhiteLuminance -> dst 0.0005..maxOutputLuminance).
++        // 500 nit input maps to ~338 nit, 1000 nit input to 500 nit, so HDR1000
++        // highlights roll off instead of clipping at the panel peak.
++        {
++            const TransferFunction pq(TransferFunction::PerceptualQuantizer);
++            constexpr double kSrcBlack = 0.05;
++            constexpr double kDstBlack = 0.0005;
++            const double srcPeakPQ = pq.pqInverseEOTF(maxWhiteLuminance);
++            const double srcBlackPQ = pq.pqInverseEOTF(kSrcBlack);
++            const double dstBlackPQ = pq.pqInverseEOTF(kDstBlack);
++            const double range = srcPeakPQ - srcBlackPQ;
++            const double maxLum = (pq.pqInverseEOTF(maxOutputLuminance) - dstBlackPQ) / range;
++            const double ks = 1.5 * maxLum - 0.5;
++            std::array<float, 129> lut;
++            for (int i = 0; i <= 128; i++) {
++                const double e1 = std::clamp((double(i) / 128.0 - srcBlackPQ) / range, 0.0, 1.0);
++                double e2 = e1;
++                if (e1 > ks) {
++                    const double tb = (e1 - ks) / (1.0 - ks);
++                    e2 = (2.0 * tb * tb * tb - 3.0 * tb * tb + 1.0) * ks
++                       + (tb * tb * tb - 2.0 * tb * tb + tb) * (1.0 - ks)
++                       + (-2.0 * tb * tb * tb + 3.0 * tb * tb) * maxLum;
++                }
++                lut[i] = float(dstBlackPQ + e2 * range);
++            }
++            setUniform("tonemapLut", lut.data(), int(lut.size()));
++        }

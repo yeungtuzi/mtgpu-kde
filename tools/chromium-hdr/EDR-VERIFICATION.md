@@ -143,3 +143,33 @@ Measured with `edr-probe` (`LUMINANCES reference`) and Chromium's
 `[EDR] swap` line (`headroom=0 sdr_nits=500` at 100 %, `headroom=1.30045
 sdr_nits=203` at 40 %).  At 100 % there is no HDR headroom left by design;
 lower the slider to regain it.
+
+## BT.2390 EETF roll-off into the 500 nit panel (LUT)
+
+Advertised peak and actual rendering are now separated:
+
+* clients are told the display peak is 500 nit (`target_luminance`), so they send
+  HDR1000 content untouched;
+* the compositor maps that content into `[0.0005, 500]` nit with an ITU-R
+  BT.2390 EETF instead of clipping at 500.
+
+The curve is precomputed on the CPU per pipeline and uploaded as a **129-entry
+1D LUT in the PQ domain** (`uniform float tonemapLut[129]`); the fragment shader
+does one `floor`/`mix` lookup, so there is no per-pixel `pow` or branch.
+
+Parameters: source black 0.05 nit, source peak = content peak (1000 nit for a
+typical HDR10 grade), destination black 0.0005 nit, destination peak 500 nit.
+
+Measured/derived mapping for a 500 nit panel:
+
+| source | output |
+|---|---|
+| 100 nit | 65.5 nit |
+| 203 nit | 135.4 nit |
+| 500 nit | 338.5 nit |
+| 1000 nit | 500.0 nit |
+| 4000 nit | 500.0 nit |
+
+Consequences: 500 nit and 1000 nit bars are now distinct (338 vs 500) instead of
+both clipping at 500, at the cost of darker mid-tones; the SDR reference white
+still follows the brightness slider, while the HDR mapping does not.
