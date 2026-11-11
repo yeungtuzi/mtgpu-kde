@@ -93,3 +93,24 @@ The Chromium-side patch in this repository is written against the
 `luminances.max` field, which both cases report as the *currently achievable*
 peak — the pinned OLED peak here, the boosted backlight peak on an LCD — so the
 same client code behaves correctly on both.
+
+## Advertising the panel peak from the compositor (no Chromium patch needed)
+
+Chromium derives its display headroom from the `target_luminance` event of
+`wp_image_description_v1`, which KWin fills with
+`ColorDescription::maxHdrLuminance()`.  Two KWin changes make that value the
+real panel peak:
+
+1. `ColorDescription::dimmed()` no longer scales `maxHdrLuminance` with the
+   brightness slider (the peak is hardware capability; only the reference/SDR
+   white and the average luminance follow the slider).
+2. `DrmOutput::createColorDescription()` passes `maxPeakBrightnessOverride`
+   (500 nit on this panel) instead of `maxLuminance * maxPossibleArtificialHdrHeadroom`.
+
+Result: `target_luminance` stays at 500 nit at any slider position, so **even
+the unpatched distribution Chromium/Chrome reaches the panel peak** — no
+Chromium rebuild is required for EDR to work.  The Chromium-side patch in this
+repository (preferring `luminances.max`) is the alternative for compositors that
+do not advertise a usable target.
+
+Apply with `patches/kwin-6.8.2-edr-target-luminance.patch` and restart KWin.
