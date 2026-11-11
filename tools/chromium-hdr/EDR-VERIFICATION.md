@@ -210,3 +210,16 @@ of the UI brightness either) and is considered acceptable for now; making the
 HDR plane strictly absolute would require the HDR content to be blended in a
 separate linear pass and the software dimming to be applied only to the SDR
 plane, which is a larger compositor change.
+
+### Recommended brightness for watching HDR (known limitation)
+
+The usable window is narrow:
+
+| slider | SDR white | HDR result |
+|---|---|---|
+| < 40 % (~200 nit) | under 200 nit | highlights look dim, the clip loses impact |
+| **40-50 % (~200-250 nit)** | 200-250 nit | **correct**: all four bars distinct, 1000 nit still reaches the panel peak |
+| > 50 % | above 250 nit | bar 3 climbs towards bar 4 and they merge near 100 % |
+
+So **40-50 % is the recommended setting while watching HDR**, and the
+brightness-dependent part is a known issue rather than intended behaviour.
