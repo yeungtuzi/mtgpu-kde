@@ -1,0 +1,68 @@
+diff --git a/ui/ozone/platform/wayland/host/wayland_wp_image_description.cc b/ui/ozone/platform/wayland/host/wayland_wp_image_description.cc
+index f9f3abb359..6657795dbd 100644
+--- a/ui/ozone/platform/wayland/host/wayland_wp_image_description.cc
++++ b/ui/ozone/platform/wayland/host/wayland_wp_image_description.cc
+@@ -4,6 +4,7 @@
+ 
+ #include "ui/ozone/platform/wayland/host/wayland_wp_image_description.h"
+ 
++#include "base/environment.h"
+ #include "base/logging.h"
+ #include "base/memory/scoped_refptr.h"
+ #include "base/notimplemented.h"
+@@ -296,8 +297,12 @@ void WaylandWpImageDescription::OnInfoDone(
+ 
+   self->sdr_max_luminance_nits_ = self->pending_reference_lum_.value_or(
+       gfx::ColorSpace::kDefaultSDRWhiteLevel);
+-  const uint32_t max_lum =
+-      self->pending_target_max_lum_.value_or(self->sdr_max_luminance_nits_);
++  // mtgpu: EDR should reach the panel peak, not the compositor tone-mapping
++  // target.  Prefer the luminance maximum from the image description and fall
++  // back to the target when the compositor does not advertise one.
++  const uint32_t max_lum = self->pending_max_lum_.value_or(
++      self->pending_target_max_lum_.value_or(
++          self->sdr_max_luminance_nits_));
+   self->hdr_max_luminance_relative_ = max_lum / self->sdr_max_luminance_nits_;
+ 
+   bool is_hdr = self->hdr_max_luminance_relative_ > 1.f;
+@@ -307,8 +312,16 @@ void WaylandWpImageDescription::OnInfoDone(
+   self->pending_custom_transfer_fn_.reset();
+   self->pending_primary_id_.reset();
+   self->pending_transfer_id_.reset();
++  if (base::Environment::Create()->GetVar("CHROME_EDR_DEBUG")) {
++    LOG(ERROR) << "[EDR] wp_image_description sdr="
++               << self->sdr_max_luminance_nits_ << " target_max="
++               << self->pending_target_max_lum_.value_or(0)
++               << " panel_max=" << self->pending_max_lum_.value_or(0)
++               << " headroom=" << self->hdr_max_luminance_relative_;
++  }
+   self->pending_reference_lum_.reset();
+   self->pending_target_max_lum_.reset();
++  self->pending_max_lum_.reset();
+ 
+   // The info object is implicitly destroyed by the server after done.
+   self->info_.reset();
+@@ -383,6 +396,10 @@ void WaylandWpImageDescription::OnInfoLuminances(
+   if (reference_lum) {
+     self->pending_reference_lum_ = reference_lum;
+   }
++  // mtgpu: keep the panel peak advertised by the compositor.
++  if (max_lum) {
++    self->pending_max_lum_ = max_lum;
++  }
+ }
+ 
+ // static
+diff --git a/ui/ozone/platform/wayland/host/wayland_wp_image_description.h b/ui/ozone/platform/wayland/host/wayland_wp_image_description.h
+index ef4933ca71..b35cdaece7 100644
+--- a/ui/ozone/platform/wayland/host/wayland_wp_image_description.h
++++ b/ui/ozone/platform/wayland/host/wayland_wp_image_description.h
+@@ -128,6 +128,8 @@ class WaylandWpImageDescription
+   std::optional<gfx::ColorSpace::TransferID> pending_transfer_id_;
+   std::optional<uint32_t> pending_reference_lum_;
+   std::optional<uint32_t> pending_target_max_lum_;
++  // mtgpu: panel peak luminance from the image description.
++  std::optional<uint32_t> pending_max_lum_;
+ 
+   // Holds the info object while its information is being parsed.
+   wl::Object<wp_image_description_info_v1> info_;

@@ -227,3 +227,12 @@ grep -c "^\[target\." tools/rust/config.toml.template      # 期望 1（仅 aarc
 grep -c "^\[host\."   tools/rust/cargo-config.toml.template # 期望 1
 grep -n "LLVM_TARGETS_TO_BUILD" -A1 tools/clang/scripts/build.py | head -3
 ```
+
+## Hardware scope of the EDR work
+
+Everything here is validated on the **aibook OLED panel**, which has no
+backlight: pinning panel drive to full is free, so the 500 nit peak is always
+available and brightness moves only the SDR white point (software).  On a
+backlit LCD the same EDR path requires boosting the backlight to maximum, which
+costs power and battery life, and the boost must be reverted when EDR/HDR is
+disabled.  See `EDR-VERIFICATION.md` for the details.

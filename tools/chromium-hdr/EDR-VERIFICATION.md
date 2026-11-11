@@ -62,3 +62,34 @@ The pre-installed Google Chrome is the *same* 157.0.8103.38 build and also binds
 `wp_color_manager_v1`.  Any difference in observed EDR is therefore **not** a
 code-path difference; the likely causes are content-side (HEVC video not
 decoding, autoplay blocked) or measurement-side (overlay not captured).
+
+## Hardware scope (aibook OLED)
+
+The setup in this repository is tuned for the **aibook's OLED panel**, which has
+no backlight: "brightness" is panel drive level, so pinning it to maximum costs
+almost nothing in power and leaves the panel's 500 nit peak permanently
+available.  KWin's EDR patch therefore
+
+1. pins the panel to full drive (`setBrightness(1.0)`), and
+2. lets the brightness slider move the **SDR white point** instead
+   (`reference_luminance` = 200 nit at 100 %, 83 nit at 40 %).
+
+That makes `headroom = panel_peak / SDR_white` a pure rendering decision:
+2.5 at 100 %, 6.0 at 40 %, with the 500 nit peak always reachable.
+
+### On backlit (LCD) panels this is different
+
+There the peak is set by the backlight, so EDR has to **boost the backlight to
+maximum before rendering HDR** and lower the SDR white point in software.  That
+is a real power and battery-life cost, and it is why the boost must be
+**reverted when EDR/HDR is switched off** — otherwise the panel stays at full
+backlight for ordinary SDR content.  A portable implementation therefore needs:
+
+- save the user's backlight level on entering EDR,
+- raise it to maximum while EDR is active,
+- restore the saved level on exit (and on compositor restart/crash).
+
+The Chromium-side patch in this repository is written against the
+`luminances.max` field, which both cases report as the *currently achievable*
+peak — the pinned OLED peak here, the boosted backlight peak on an LCD — so the
+same client code behaves correctly on both.
