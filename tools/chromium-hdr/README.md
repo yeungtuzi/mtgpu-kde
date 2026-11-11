@@ -236,3 +236,11 @@ available and brightness moves only the SDR white point (software).  On a
 backlit LCD the same EDR path requires boosting the backlight to maximum, which
 costs power and battery life, and the boost must be reverted when EDR/HDR is
 disabled.  See `EDR-VERIFICATION.md` for the details.
+
+## Verifying the headroom patch
+
+`tools/chromium-hdr/verify-headroom.sh` drives the brightness slider to 100 %
+and 40 %, queries the compositor with `edr-probe` and prints the headroom
+Chromium derived from it.  With the panel-peak patch applied the reported
+`headroom × sdr` must stay at the panel peak (500 nit) in both runs; without it
+the value follows `target_luminance` and drops to ~264/318 nit.
