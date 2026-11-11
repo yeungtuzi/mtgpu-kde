@@ -118,21 +118,13 @@ do not advertise a usable target.
 
 Apply with `patches/kwin-6.8.2-edr-target-luminance.patch` and restart KWin.
 
-## Surface-level target_luminance (still open)
+## Surface-level target_luminance (resolved)
 
-The compositor-side change makes the **output** description report the panel peak
-(`edr-probe`: `TARGET_LUM 500` at 100 % and 40 % brightness), but the value a
-client receives for its own surface still varies: with the same KWin build,
-Chromium logged `headroom=1.32 sdr=200` at 100 % and `headroom=2.59 sdr=83` at
-40 %.  Those are **log2** values (`DisplayColorSpaces::GetHdrHeadroom()` returns
-`std::log2(hdr_max_luminance_relative_)`), i.e. 2.5x and 6.02x of the SDR white,
-which is exactly 500 nit in both cases.  The earlier "264/215 nit" reading in
-this document was an arithmetic error (treating log2 as linear).
+The client also receives the panel peak.  KWin's own log (temporary `EDRK`
+instrumentation in `ImageDescriptionV1::wp_image_description_v1_get_information`)
+shows the descriptions it sends carry `ref=200 tf_max=500 hdr_max=500`, and
+Chromium's `[EDR] swap` line reports `headroom=1.32193` at that SDR white, which
+is `log2(500/200) = 2.5x`.  At 40 % brightness the same peak gives
+`log2(500/83) = 2.59x`.  No surface-level gap exists; the earlier claim came
+from reading the log2 value as a linear ratio.
 
-The client description is built in `window.cpp:4572` from
-`output->blendingColor()`, and `blendingColor` is assigned from
-`next.colorDescription` in `drm_output.cpp:769`, so the remaining difference is
-introduced somewhere between that assignment and the
-`wp_color_management_surface_feedback_v1::get_preferred` reply.  Fixing it is a
-second, still-open KWin change; until then the Chromium-side patch (preferring
-`luminances.max`) is what makes the client reach the 500 nit peak.
