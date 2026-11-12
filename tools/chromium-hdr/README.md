@@ -108,25 +108,32 @@ Chromium 产物是自包含目录，安装即拷出 `out/hdr` 中运行所需文
 * WebUI/DevTools 的 TypeScript 产物依赖 tsc，运行期需要 `GODEBUG`（仅构建期）。
 * 上游无 arm64 clang/rust 包，本方案依赖本地 clang 21 + nightly rust。
 
-## 9. 已知阻塞（2026-11，未解决）
+## 9. crubit / Rust↔C++ 绑定（2026-11 更新：工具链已解决，构建中未启用）
 
-在当前 arm64 Linux host 上，Chromium 的 Rust↔C++ 绑定工具 **crubit**
-（`cc_bindings_from_rs`）无法替换：
+**工具链层面已解决**：`mtgpu-rust` 的 deb 里已经带上了 aarch64 的
+`cc_bindings_from_rs`（8.1 MB）与 `rs_bindings_from_cc`（70 MB），由
+`tools/rust/build_rust.py --stage-1 --build-crubit` 本地编出，与其 rustc
+`1.100.0-nightly (1edd55dcf)` 版本完全匹配，因此不再有
+`E0514: incompatible version of rustc` 的问题。
 
-* 官方工具链只发布 **x86-64** 的 `cc_bindings_from_rs`，且与其自带 rustc
-  （`1edd55dcf`）版本绑定；
-* 若改用原生 aarch64 rustc，crubit 分析 Rust crate 时必然
-  `E0514: found crate compiled by an incompatible version of rustc`；
-* 关掉 crubit 又会缺 `components/cbor` 与 blink `ift_patcher` 所需的生成头文件；
-* 让宿主工具链整体编成 x86_64 需要 x86_64 glibc 开发文件（本机没有），
-  build script 链接会失败。
+**但本机 Chromium 构建没有启用它们**：`out/hdr/args.gn` 里
 
-受影响的 3 个目标：`components/cbor/rust`、`build/rust/std` 的
-`rs_std`/`rs_alloc`/`rs_core` 绑定。
+```
+enable_rust_api_from_cpp = false
+enable_cpp_api_from_rust = false
+```
 
-可行但昂贵的出路：
-1. 用 `tools/rust/build_crubit.py` 从源码编 crubit（需先编 LLVM+rustc，约 6–10 小时）；
-2. 等上游提供 arm64 版 clang/rust/crubit 工具链（DEPS 目前没有）。
+即验证过的构建完全不依赖 crubit；`components/cbor`、`build/rust/std` 的
+`rs_std`/`rs_alloc`/`rs_core` 绑定在关闭状态下也能编过并链接成功。
+（`mtgpu-rust` 目前也没有安装到本机 `/opt/mtgpu-toolchain`。）
+
+要走"启用 crubit"的路线，需要：
+1. 安装 `mtgpu-rust` deb（或把 `cc_bindings_from_rs` 放进工具链搜索路径）；
+2. 打开上述两个 gn 开关并接受一次与 rust 目标相关的大范围重编；
+3. 重新验证 `components/cbor` 与 blink `ift_patcher` 的生成头文件可用。
+
+所以现状是：**阻塞的根因（缺 aarch64 crubit）已消除，但当前发布构建选择不启用
+Rust↔C++ 绑定**，把风险留在构建之外。
 
 ## 10. 其它环境坑（已验证）
 
