@@ -25,9 +25,37 @@
 
 ![工作状态：2880×1800、200% 缩放、119.93Hz、EDR 已启用](screenshots/plasma6-working-2880x1800-edr.jpg)
 
+
+## 系统级 EDR：不需要再自己编译浏览器（2026-11-13）
+
+**结论先行**：EDR 现在是**合成器（KWin）侧的能力**，`mtgpu-kde` 装好即可，
+**预装 Google Chrome、Brave 等 Chromium 系浏览器无需改一行代码就能获得 EDR**。
+
+* 新增补丁 [`patches/kwin-6.8.2-edr-advertise-1000.patch`](patches/kwin-6.8.2-edr-advertise-1000.patch)：
+  在 `wp_image_description_info_v1_send_luminances()` 里把通告给客户端的 **HDR 最大值下限抬到 1000 nit**
+  （物理面板峰值仍是 500 nit），同时 `target_luminance` 也固定为 1000。
+* 之前缺的正是这一步：客户端按 `luminances.max`（旧值 500）判断显示能力，不会再请求头空间；
+  抬到 1000 后，客户端按 HDR 输出，合成器再用 BT.2390 LUT 压回 500 nit 面板，
+  于是 **HDR1000 内容不再是"裁到 500"，而是滚降映射，观感接近 TrueBlack HDR500**。
+* SDR 参考白仍随亮度滑条变化，未受影响。
+
+实测（同一台 AIBOOK，`hdr-bars.mp4` 四段 100/203/500/1000 nit）：
+
+| 浏览器 | VPU 硬解 | EDR |
+|---|---|---|
+| 预装 **Google Chrome** | ✅ 默认 | ✅ |
+| **Brave 1.99.57**（Chromium 157） | ✅ 默认（Decoder 2.8–6.0%） | ✅ |
+| 自编 mtgpu-chromium | ✅ | ✅ |
+
+判定证据（KWin 日志）：`EDRK shader tonemap=1 maxWhite=1003.2 maxOut=500.0 tf=2`，
+探针读数 `LUMINANCES max=1000`、`TARGET_LUM max=1000`。
+
+因此：**只想在 AIBOOK 上看 HDR/EDR，装 `mtgpu-kwin-edr` 就够了，不必自己编译浏览器**；
+自编浏览器的意义只剩"去 Google / 完全可控"。
+
 ## 关键结论（2026-11-09 修正）
 
-* 本项目只做 **Plasma 6.8.2**，全部从源码构建；当前版本 **6.8.2-mtgpu3**。
+* 本项目只做 **Plasma 6.8.2**，全部从源码构建；当前版本 **6.8.2-mtgpu4**。
 * KWin 6.8 **内置 EDR 支持**，不需要补丁去"打开 EDR"：
   * `drm_output.cpp` 在「有 brightnessDevice + 内屏 + 不支持标准 HDR」时直接置 `Capability::Edr`；
   * `compositor.cpp` 会按屏幕上 HDR 内容的 `maxHdrLuminance/referenceLuminance` 动态提升"人工 HDR headroom"（上限 3×，按亮度余量封顶）；
@@ -38,8 +66,8 @@
   * 诊断与实测见 `notes/edr-peak-luminance-6.8.md`；
   * 修复补丁 `patches/kwin-6.8.2-edr-peak-luminance.patch`（用 `tools/apply-kwin-edr.sh` 应用）；
   * 补丁同时把亮度滑条改成**软件白点**、硬件背光恒定满，符合 OLED EDR 的用法。
-* 补丁后 eDP-1 通告 `max=500`、`reference` 随滑条变化（100%→200，40%→83），
-  Chrome 播放 PQ 测试图可见 500 nit 高光明显亮于 SDR 白（1000 nit 因面板峰值被裁到 500）。
+* 补丁后 eDP-1 通告 `max=1000`（mtgpu4 起）、`reference` 随滑条变化，
+  Chrome/Brave 按 1000 nit 输出，KWin 用 BT.2390 滚降到 500 nit 面板。
 * 客户端现状：Chrome 157 可用（ANGLE + MTT Mesa GLES）；mpv 0.42 协议层可用，
   但本机 MT 驱动的 Vulkan Wayland WSI 报 `VK_ERROR_UNKNOWN`，且其 EGL 初始化选不到 MTT GL，
   暂时无法出画——详见 `notes/edr-peak-luminance-6.8.md` 第 5 节。
