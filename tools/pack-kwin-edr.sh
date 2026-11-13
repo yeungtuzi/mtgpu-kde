@@ -10,7 +10,7 @@ set -euo pipefail
 
 BUILD=${BUILD:-$HOME/build/kwin-hdr/build}
 PREFIX=${PREFIX:-/opt/kde6}
-VER=${VER:-6.8.2-mtgpu4}
+VER=${VER:-6.8.2-mtgpu5}
 OUT=${OUT:-$HOME/kde6/debs/$VER}
 STAGE=$(mktemp -d "$HOME/.cache/kwin-edr.XXXXXX")
 
@@ -27,6 +27,11 @@ mkdir -p "$STAGE/pkg$PREFIX"
   cp -a "$SRC/$rel" "$STAGE/pkg$PREFIX/$rel"
 done
 
+# The build tree was configured with the experimental prefix /opt/kwin-patched;
+# rewrite that string in shipped text files so units/desktop files point at the
+# real install prefix.
+find "$STAGE/pkg" -type f \( -name '*.service' -o -name '*.desktop' -o -name '*.knsrc' -o -name '*.h' -o -name '*.cmake' -o -name '*.pc' \) \
+  -exec sed -i 's#/opt/kwin-patched#/opt/kde6#g' {} +
 COUNT=$(find "$STAGE/pkg" -type f | wc -l)
 SIZE=$(du -sk "$STAGE/pkg" | cut -f1)
 mkdir -p "$STAGE/pkg/DEBIAN"
