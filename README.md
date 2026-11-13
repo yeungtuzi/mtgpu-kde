@@ -77,7 +77,12 @@
 
 ## 关键结论（2026-11-09 修正）
 
-* 本项目只做 **Plasma 6.8.2**，全部从源码构建；当前版本 **6.8.2-mtgpu7**。
+* 本项目只做 **Plasma 6.8.2**，全部从源码构建；当前版本 **6.8.2-mtgpu8**（2026-11-13，唯一在架版本，
+  旧版 mtgpu1/2/4/5/6/7 已全部撤回删除）。安装用发布页里的 `install-kde6-mtgpu.sh`
+  （含依赖检查与 Plasma 5 污染检测），详见 [docs/release-mtgpu8.md](docs/release-mtgpu8.md)。
+
+> **运行依赖**：目标机需 AIOS / Ubuntu 24.04 arm64 + MTT 用户态驱动，并且需要 **`libicu70`**
+> （AIOS 基础镜像自带；vanilla Ubuntu noble 只有 libicu74，会报 `libicuuc.so.70: not found`）。
 * KWin 6.8 **内置 EDR 支持**，不需要补丁去"打开 EDR"：
   * `drm_output.cpp` 在「有 brightnessDevice + 内屏 + 不支持标准 HDR」时直接置 `Capability::Edr`；
   * `compositor.cpp` 会按屏幕上 HDR 内容的 `maxHdrLuminance/referenceLuminance` 动态提升"人工 HDR headroom"（上限 3×，按亮度余量封顶）；
@@ -113,7 +118,7 @@
 
 ## 常见问题：重启后亮度变 100% / plasmashell 不启动
 
-这是两个独立问题，mtgpu7 起都已处理：
+这是两个独立问题，mtgpu7 起都已处理（mtgpu8 全量包含）：
 
 ### 1. 亮度被重置为 100%
 
