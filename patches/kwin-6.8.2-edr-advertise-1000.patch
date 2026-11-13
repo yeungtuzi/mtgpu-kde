@@ -1,0 +1,18 @@
+--- a/src/wayland/colormanagement_v1.cpp	2026-11-13 10:41:29.636901501 +0800
++++ b/src/wayland/colormanagement_v1.cpp	2026-11-13 10:41:29.639107921 +0800
+@@ -651,7 +651,14 @@
+     if (auto maxcll = color->maxHdrLuminance()) {
+         wp_image_description_info_v1_send_target_max_cll(resource, std::round(*maxcll));
+     }
+-    wp_image_description_info_v1_send_luminances(resource, std::round(color->transferFunction().minLuminance / s_minLuminanceUnit), std::round(color->transferFunction().maxLuminance), std::round(color->referenceLuminance()));
++    // mtgpu EDR: advertise a floor of 1000 nits as the HDR maximum so that
++    // clients which derive their headroom from luminances (rather than from
++    // target_luminance) still get a real HDR target; the compositor rolls the
++    // result off into the physical panel peak.
++    constexpr double kAdvertisedHdrMaxFloor = 1000.0;
++    const double advertisedHdrMax =
++        std::max<double>(color->transferFunction().maxLuminance, kAdvertisedHdrMaxFloor);
++    wp_image_description_info_v1_send_luminances(resource, std::round(color->transferFunction().minLuminance / s_minLuminanceUnit), std::round(advertisedHdrMax), std::round(color->referenceLuminance()));
+     // mtgpu EDR: advertise a *fixed* HDR target to clients, independent of the
+     // brightness slider.  Clients then keep sending HDR content untouched (their
+     // video does not dim with the SDR/UI brightness), and the compositor performs

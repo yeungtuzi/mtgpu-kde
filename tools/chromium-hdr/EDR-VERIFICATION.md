@@ -223,3 +223,18 @@ The usable window is narrow:
 
 So **40-50 % is the recommended setting while watching HDR**, and the
 brightness-dependent part is a known issue rather than intended behaviour.
+
+## 免重编 Chromium 的 EDR（2026-11-13 验证）
+
+KWin 侧新增：`wp_image_description_info_v1_send_luminances()` 通告的 **HDR 最大值下限提升到 1000 nit**
+（`patches/kwin-6.8.2-edr-advertise-1000.patch`），物理面板峰值仍是 500 ni，由 BT.2390 LUT 压回。
+
+效果：**未改动的 Chromium 系浏览器也能拿到 EDR**，不需要重编客户端。
+
+| 浏览器 | 硬解（VPU） | EDR | 证据 |
+|---|---|---|---|
+| Brave 1.99.57（Chromium 157） | ✅ 默认（2.8–6.0%） | ✅ | `EDRK shader tonemap=1 maxWhite=1003.2 maxOut=500.0 tf=2` |
+| Google Chrome（预装） | ✅ 默认 | ✅ | 同上 |
+| 本仓 mtgpu-chromium | ✅ | ✅ | 同上 |
+
+探针读数（`tools/edr-probe`）：`LUMINANCES min=0.01 max=1000 reference=153`、`TARGET_LUM min=0.01 max=1000`。
