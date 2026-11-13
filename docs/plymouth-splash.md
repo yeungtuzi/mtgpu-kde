@@ -44,7 +44,7 @@ Plymouth 会按 `ply_guess_device_scale()` 自动开启 HiDPI：分辨率达到�
 
 ksplash 的尺寸是 `min(W/4, H/2)`：逻辑 1440×900 下为 **360 逻辑像素 = 720 物理像素**。
 若 Plymouth 主题直接用 720px 素材，就会按逻辑单位绘制成 720 → 物理 1440，也就是"两倍大"。
-所以 `aibook.script` 使用 `*-360.png`；`gen-assets.sh` 同时生成 720 版本，供 `device_scale=1` 的场景使用。
+所以 `gen-frames.py` 把帧渲染成 **360×360**；若换成 `device_scale=1` 的屏幕，需要把 `SIZE` 改成 720 重新生成。
 
 ## 动画为什么用"预合成帧"而不是运行时透明度
 
