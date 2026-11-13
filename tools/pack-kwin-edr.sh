@@ -41,7 +41,7 @@ done
 # The build tree was configured with the experimental prefix /opt/kwin-patched;
 # rewrite that string in shipped text files so units/desktop files point at the
 # real install prefix.
-grep -rIl -- "/opt/kwin-patched" "$STAGE/pkg" | while read -r t; do
+{ grep -rIl -- "/opt/kwin-patched" "$STAGE/pkg" || true; } | while read -r t; do
   sed -i 's#/opt/kwin-patched#/opt/kde6#g' "$t"
 done
 BAD=$(grep -rl "/opt/kwin-patched" "$STAGE/pkg" 2>/dev/null | wc -l)
