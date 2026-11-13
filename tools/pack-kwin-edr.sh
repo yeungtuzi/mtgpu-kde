@@ -10,7 +10,7 @@ set -euo pipefail
 
 BUILD=${BUILD:-$HOME/build/kwin-hdr/build}
 PREFIX=${PREFIX:-/opt/kde6}
-VER=${VER:-6.8.2-mtgpu6}
+VER=${VER:-6.8.2-mtgpu7}
 OUT=${OUT:-$HOME/kde6/debs/$VER}
 STAGE=$(mktemp -d "$HOME/.cache/kwin-edr.XXXXXX")
 

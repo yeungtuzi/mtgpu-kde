@@ -29,14 +29,14 @@
 
 > **打包事故说明（2026-11-13）**：`v6.8.2-mtgpu4` 的 deb 残留了构建树前缀 `/opt/kwin-patched`
 > （含 `plasma-kwin_wayland.service`），会让接入 `/opt/kde6` 的机器 KWin 启动失败（`203/EXEC`）。
-> 该版本资产已撤回，`v6.8.2-mtgpu6` 已修正并在打包脚本里加了路径改写与校验。
+> 该版本资产已撤回，`v6.8.2-mtgpu7` 已修正并在打包脚本里加了路径改写与校验。
 > 若你的 `/etc/xdg/systemd/user/plasma-kwin_wayland.service` 指向 `/opt/kwin-patched`，
 > 请改为 `/opt/kde6/bin/kwin_wayland_wrapper`。
 
 
 > **重要更正（2026-11-13）**：`v6.8.2-mtgpu4`/`mtgpu5` 的 deb **都没有包含 `libkwin.so.6.8.2`**
 > （打包脚本的 multiarch 路径 bug），因此 **EDR 补丁此前从未随 overlay 真正交付**；两份资产均已撤回。
-> `v6.8.2-mtgpu6` 已修复并在 chroot 与实机双重验证：1725 个文件齐全、md5 与 deb 一致、依赖 0 缺失。
+> `v6.8.2-mtgpu7` 已修复并在 chroot 与实机双重验证：1725 个文件齐全、md5 与 deb 一致、依赖 0 缺失。
 
 ## 系统级 EDR：不需要再自己编译浏览器（2026-11-13）
 
@@ -77,7 +77,7 @@
 
 ## 关键结论（2026-11-09 修正）
 
-* 本项目只做 **Plasma 6.8.2**，全部从源码构建；当前版本 **6.8.2-mtgpu6**。
+* 本项目只做 **Plasma 6.8.2**，全部从源码构建；当前版本 **6.8.2-mtgpu7**。
 * KWin 6.8 **内置 EDR 支持**，不需要补丁去"打开 EDR"：
   * `drm_output.cpp` 在「有 brightnessDevice + 内屏 + 不支持标准 HDR」时直接置 `Capability::Edr`；
   * `compositor.cpp` 会按屏幕上 HDR 内容的 `maxHdrLuminance/referenceLuminance` 动态提升"人工 HDR headroom"（上限 3×，按亮度余量封顶）；
@@ -109,6 +109,48 @@
   强行驱动超出标称亮度还会加速 OLED 老化。
 
 结论：保留 EDR 方案，不再尝试 vendor HDR 通路。
+
+
+## 常见问题：重启后亮度变 100% / plasmashell 不启动
+
+这是两个独立问题，mtgpu7 起都已处理：
+
+### 1. 亮度被重置为 100%
+
+EDR 模式下硬件背光被钉在最大，KWin 曾把"观测到的硬件亮度"当成用户设置，导致每次登录都回到 100%。
+修复补丁：[`patches/kwin-6.8.2-edr-brightness-restore.patch`](patches/kwin-6.8.2-edr-brightness-restore.patch)
+（EDR 激活时改用 `kwinoutputconfig.json` 中的 brightness）。验证：重启两次后仍恢复 40%。
+
+### 2. 登录后没有面板 / plasmashell 反复崩溃
+
+若 `journalctl --user -u plasma-plasmashell` 出现
+`Could not load the Qt platform plugin "wayland"`，说明 systemd 用户单元没拿到 Qt/Wayland 环境。
+在机器上补两处（一次性）：
+
+```bash
+mkdir -p ~/.config/environment.d ~/.config/systemd/user/plasma-plasmashell.service.d
+cat > ~/.config/environment.d/15-mtgpu-kde.conf <<EOF
+LD_LIBRARY_PATH=/opt/kde6/lib:/opt/kde6/lib/aarch64-linux-gnu
+QT_PLUGIN_PATH=/opt/kde6/plugins:/opt/kde6/lib/plugins
+XDG_DATA_DIRS=/opt/kde6/share:/usr/local/share:/usr/share
+EOF
+cat > ~/.config/systemd/user/plasma-plasmashell.service.d/override.conf <<EOF
+[Unit]
+StartLimitIntervalSec=0
+After=plasma-kwin_wayland.service
+Wants=plasma-kwin_wayland.service
+
+[Service]
+Restart=on-failure
+RestartSec=3
+Environment=QT_PLUGIN_PATH=/opt/kde6/plugins:/opt/kde6/lib/plugins
+Environment=LD_LIBRARY_PATH=/opt/kde6/lib:/opt/kde6/lib/aarch64-linux-gnu
+Environment=XDG_DATA_DIRS=/opt/kde6/share:/usr/local/share:/usr/share
+Environment=QT_QPA_PLATFORM=wayland
+Environment=WAYLAND_DISPLAY=wayland-1
+EOF
+systemctl --user daemon-reload
+```
 
 ## 构建策略
 

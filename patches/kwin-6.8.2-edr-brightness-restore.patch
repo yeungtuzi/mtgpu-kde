@@ -1,0 +1,28 @@
+--- a/src/workspace.cpp	2026-11-13 13:53:35.726864360 +0800
++++ b/src/workspace.cpp	2026-11-13 13:53:35.728212640 +0800
+@@ -1562,12 +1562,23 @@
+             if (device->usesDdcCi()) {
+                 changeset->detectedDdcCi = true;
+             }
++            // mtgpu EDR: while EDR is active the hardware backlight is pinned to
++            // maximum, so the observed hardware brightness (1.0) must not be
++            // mistaken for the user brightness setting - otherwise every login
++            // resets the panel to 100%.
++            const bool edrPinned = output->isInternal()
++                && output->capabilities().testFlag(BackendOutput::Capability::Edr)
++                && output->edrPolicy() == BackendOutput::EdrPolicy::Always;
+             if (changeset->allowSdrSoftwareBrightness.value_or(output->allowSdrSoftwareBrightness())) {
+                 changeset->allowSdrSoftwareBrightness = false;
+-                changeset->brightness = device->observedBrightness();
++                if (!edrPinned) {
++                    changeset->brightness = device->observedBrightness();
++                }
+             }
+             if (device != output->brightnessDevice()) {
+-                changeset->currentHardwareBrightness = device->observedBrightness();
++                if (!edrPinned) {
++                    changeset->currentHardwareBrightness = device->observedBrightness();
++                }
+             }
+         }
+     }
