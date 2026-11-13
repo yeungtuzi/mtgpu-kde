@@ -243,6 +243,31 @@ PowerDevil 日志报 `backlighthelper.brightness failed 8`。
 另外 KWin 里的 EDR 调试日志（每帧 `qWarning`，单次开机曾产生 16 万行）已改为
 仅当环境变量 `KWIN_EDR_DEBUG` 存在时输出；需要排查 EDR 时再打开。
 
+### 8. 已知问题：Brave 播放 HDR 视频花屏（Chromium 内核版本相关）
+
+**现象**：Brave（Chromium 157.0.8103.**79**）播放 B 站 4K/8K HDR（HEVC Main10 + BT.2020 + PQ）
+时，视频区域出现块状/绿紫噪点花屏；同一视频在自建的 Chromium（157.0.8103.**38**）里完全正常。
+两者 `media-internals` 的 `kVideoTracks` 完全相同（`hevc main 10`、3840×2160、BT2020/PQ/LIMITED），
+GPU 管线也相同（`mtgpu_dri.so` / `libEGL_mtgpu.so` / `mtgpu_drv_video*.so` / `libva`）。
+
+**已排除**：
+- KWin EDR：把 `Allow EDR` 设为 Never 后仍然花屏；
+- dmabuf 零拷贝：`--disable-gpu-memory-buffer-video-frames` 无效；
+- `UseDisplaySDRMaxLuminanceNits`：给 Brave 加上该特性后依然花屏。
+
+**结论**：与 Chromium 内核版本相关——Brave 使用的较新 Chromium 启用了 Wayland 色彩管理 HDR 输出，
+而该路径在本机驱动/合成组合下存在已知 bug；我们自建的 .38 尚未启用这条路径，所以正常。
+上游相关提交（均为 Wayland HDR 色彩管理问题）：
+
+- [53b3687e](https://chromium.googlesource.com/chromium/src/+/53b3687eef8b4e8137f58c68e6d9f53e758b8b4a) "[Wayland] Disable color management"（HDR 视频被合成进 SDR surface）
+- [f6dcb598](https://chromium.googlesource.com/chromium/src/+/f6dcb598533b18d9769dba25463f31e17f550ea1) "Ozone/Wayland: Fix HDR screen output format banding"（`RGBA_F16`/`RGBA_1010102` 未被接进 HDR 输出槽）
+- [7733798c](https://chromium.googlesource.com/chromium/src/+/7733798cb682d94d26a3c2c6f71760977f42e7cd) `preferred_changed` 覆盖导致高色深格式被绕过
+- [5d098324](https://chromium.googlesource.com/chromium/src/+/5d0983240c338f6d0e85c8497d67b10105ac4b5a) HDR 会话启动时 `wp_color_manager_v1` 异步就绪竞态
+
+**当前处置**：HDR 内容用自建 Chromium 播放；Brave 用于其它场景。
+给 Brave 加 `--disable-features=WaylandWpColorManagerV1` 可消除花屏，但 Brave 会**不再声明 HDR**、
+拿不到 HDR 流，因此不作为方案。等 Brave/Chromium 更新到包含上述修复的版本后再复测。
+
 ## 构建策略
 
 * **全部源码构建**：Qt 6.11.3 → KDE Frameworks 6.31 → Plasma 6.8.2。
