@@ -16,6 +16,15 @@
    5c. 二进制 RUNPATH 只能是 `/opt/kde6/...`，不得出现构建树路径；
    5d. 解包后逐文件 md5 与 deb 载荷一致。
 
+## 安装/集成阶段
+
+5e. `kde6-mtgpu-session` 必须存在且 postinst 能建立以下软链：
+   `/usr/share/wayland-sessions/plasma6-kde6.desktop`、`/usr/lib/systemd/user/plasma-*`、
+   `/usr/share/polkit-1/actions/org.kde.powerdevil.*.policy`、
+   `/usr/share/dbus-1/system.d/org.kde.powerdevil.*.conf`；
+5f. 缺省安装后运行 `tools/install-kde6-mtgpu.sh --check`，确认依赖警告清单符合预期；
+5g. 托盘功能抽查：网络、音量、蓝牙 applet 存在；亮度滑块出现（`backlighthelper` 能注册 D-Bus）。
+
 ## 发布阶段（人工核对）
 
 6. 在**本机先安装**该 deb，重启会话，确认桌面正常（EDR、输入法、窗口装饰）；

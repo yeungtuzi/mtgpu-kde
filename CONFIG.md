@@ -24,9 +24,20 @@
 
 <https://github.com/yeungtuzi/mtgpu-kde/releases>
 
+推荐用安装脚本（会先检查系统、依赖、Plasma 5 污染，装完建立系统软链并验证）：
+
 ```sh
-sudo dpkg -i kde6-mtgpu-*.deb
+./tools/install-kde6-mtgpu.sh --check        # 只检查，不改系统
+./tools/install-kde6-mtgpu.sh --debs DIR     # 安装 DIR 下的 kde6-mtgpu-*.deb
 ```
+
+也可以手动 `sudo dpkg -i kde6-mtgpu-*.deb`，但**必须**再执行
+`sudo tools/kde6-integration-symlinks.sh`，否则没有 wayland session 入口，
+亮度/EDR 也会因缺 polkit/dbus 软链而失效。
+
+脚本会警告以下运行时依赖（缺了只是对应托盘功能不可用，不阻止安装）：
+`network-manager`（网络）、`bluez`（蓝牙）、`pipewire-pulse`（音量）、
+`libcanberra0`（音效）、`fcitx5*`（输入法）、`xdg-desktop-portal`。
 
 装完不要立刻切换会话，先做完第 2 节，否则会以错误的输入法进入桌面。
 

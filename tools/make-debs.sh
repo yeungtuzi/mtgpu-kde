@@ -8,7 +8,7 @@
 set -euo pipefail
 
 PREFIX=${PREFIX:-/opt/kde6}
-VERSION=${1:-6.8.2-mtgpu3}
+VERSION=${1:-6.8.2-mtgpu8}
 OUTDIR=${OUTDIR:-$HOME/kde6/debs/$VERSION}
 WORK=${WORK:-$HOME/kde6/debs/.stage-$VERSION}
 ARCH=arm64
@@ -78,10 +78,52 @@ for kind in "${!AREA[@]}"; do
   dpkg-deb --root-owner-group --build "$dir" "$OUTDIR/kde6-mtgpu-${kind}_${VERSION}_${ARCH}.deb" >/dev/null
 done
 
+# ---------------------------------------------------------------------------
+# session 包：/usr 侧只放软链与启动入口（wayland session、systemd user units、
+# polkit actions、dbus system.d）。没有它，用户装完进不了会话，亮度/EDR 也会坏。
+say "stage session"
+sdir="$WORK/session"
+mkdir -p "$sdir/usr/share/wayland-sessions" "$sdir/usr/share/mtgpu-kde" "$sdir/DEBIAN"
+if [ -f "$PREFIX/share/wayland-sessions/plasma6-kde6.desktop" ]; then
+  cp -a "$PREFIX/share/wayland-sessions/plasma6-kde6.desktop" "$sdir/usr/share/wayland-sessions/"
+fi
+cp -a "$(dirname "$0")/kde6-integration-symlinks.sh" "$sdir/usr/share/mtgpu-kde/"
+cat > "$sdir/DEBIAN/postinst" <<'POSTINST'
+#!/bin/sh
+set -e
+[ "$1" = configure ] || exit 0
+if [ -x /usr/share/mtgpu-kde/kde6-integration-symlinks.sh ]; then
+  KDEPREFIX=/opt/kde6 /usr/share/mtgpu-kde/kde6-integration-symlinks.sh || true
+fi
+exit 0
+POSTINST
+cat > "$sdir/DEBIAN/prerm" <<'PRERM'
+#!/bin/sh
+set -e
+[ "$1" = remove ] || [ "$1" = purge ] || exit 0
+for f in /usr/lib/systemd/user/plasma-*.service /usr/lib/systemd/user/plasma-*.target; do
+  [ -L "$f" ] || continue
+  case "$(readlink -f "$f" 2>/dev/null)" in /opt/kde6/*) rm -f "$f" ;; esac
+done
+for d in /usr/share/polkit-1/actions /usr/share/dbus-1/system.d; do
+  for f in "$d"/*; do
+    [ -L "$f" ] || continue
+    case "$(readlink -f "$f" 2>/dev/null)" in /opt/kde6/*) rm -f "$f" ;; esac
+  done
+done
+rm -f /usr/share/wayland-sessions/plasma6-kde6.desktop
+exit 0
+PRERM
+chmod 755 "$sdir/DEBIAN/postinst" "$sdir/DEBIAN/prerm"
+make_control "$sdir" "kde6-mtgpu-session" "$ARCH" "session integration (symlinks)" \
+  "network-manager, bluez, pipewire-pulse | pulseaudio, libcanberra0"
+say "build kde6-mtgpu-session"
+dpkg-deb --root-owner-group --build "$sdir" "$OUTDIR/kde6-mtgpu-session_${VERSION}_${ARCH}.deb" >/dev/null
+
 # meta package
 meta="$WORK/meta"
 mkdir -p "$meta/DEBIAN"
-deps=""
+deps="kde6-mtgpu-session (= $VERSION)"
 for kind in "${!AREA[@]}"; do
   deps="${deps:+$deps, }kde6-mtgpu-$kind (= $VERSION)"
 done

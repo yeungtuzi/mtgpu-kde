@@ -31,6 +31,14 @@
   env 文件、`/usr/lib/systemd/user` 和 D-Bus/polkit 的 symlink，postinst 创建）
 * meta：`kde6-mtgpu`（`Depends:` 上面全部）
 
+## 1b. 已实现（2026-11-13）
+
+`tools/make-debs.sh` 现在会额外产出 **`kde6-mtgpu-session`**：装
+`/usr/share/wayland-sessions/plasma6-kde6.desktop` 与
+`/usr/share/mtgpu-kde/kde6-integration-symlinks.sh`，postinst 建立
+systemd user unit / polkit / dbus 软链，prerm 删除；meta 包依赖它。
+安装入口统一用 `tools/install-kde6-mtgpu.sh`（含依赖检查、KDE5 污染检测、安装后验证）。
+
 ## 2. 生成方式
 
 不要用 `checkinstall`（会把整个前缀塞进一个包）。用 **CMake install manifest** 分文件：
