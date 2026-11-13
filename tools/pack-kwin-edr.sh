@@ -44,7 +44,7 @@ done
 { grep -rIl -- "/opt/kwin-patched" "$STAGE/pkg" || true; } | while read -r t; do
   sed -i 's#/opt/kwin-patched#/opt/kde6#g' "$t"
 done
-BAD=$(grep -rl "/opt/kwin-patched" "$STAGE/pkg" 2>/dev/null | wc -l)
+BAD=$(grep -rl "/opt/kwin-patched" "$STAGE/pkg" 2>/dev/null | wc -l || true)
 if [ "$BAD" -ne 0 ]; then
   echo "ERROR: $BAD staged files still reference the build-tree prefix /opt/kwin-patched" >&2
   exit 1
