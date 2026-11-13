@@ -306,6 +306,12 @@ GPU 管线也相同（`mtgpu_dri.so` / `libEGL_mtgpu.so` / `mtgpu_drv_video*.so`
 
 细节与上游源码依据：[docs/plymouth-splash.md](docs/plymouth-splash.md)。
 
+### 10. 启动速度：28s → 6s
+
+最大头是 **GDM autologin 时固定等 20 秒才 quit plymouth**（[gdm#1031](https://gitlab.gnome.org/GNOME/gdm/-/work_items/1031)），
+表现为 `plymouth-quit-wait.service` 占 21s；桌面其实早已就绪。处置与其余优化（ufw→nftables、
+禁 wait-online/snapd/cloud-init/sssd、内核参数）见 [docs/boot-optimization.md](docs/boot-optimization.md)。
+
 ## 构建策略
 
 * **全部源码构建**：Qt 6.11.3 → KDE Frameworks 6.31 → Plasma 6.8.2。
@@ -332,7 +338,8 @@ GPU 管线也相同（`mtgpu_dri.so` / `libEGL_mtgpu.so` / `mtgpu_drv_video*.so`
 * [notes/hdr-driver-findings.md](notes/hdr-driver-findings.md) —— 驱动能力实测（P0，仍有效）
 * [CONFIG.md](CONFIG.md) —— 安装后配置清单（fcitx5 / EDR / 回退）
 * [docs/backlight-edr-dbus.md](docs/backlight-edr-dbus.md) —— 亮度滑块 / EDR 选项消失的根因（backlighthelper 被系统包覆盖）与防覆盖
-* [docs/plymouth-splash.md](docs/plymouth-splash.md) —— Plymouth 主题（serial console / HiDPI 缩放 / 动画刷新率）
+* [docs/plymouth-splash.md](docs/plymouth-splash.md) —— Plymouth 主题（serial console / HiDPI 缩放 / 动画实现）
+* [docs/boot-optimization.md](docs/boot-optimization.md) —— 启动速度 28s→6s 的原因与处置
 * [docs/ime-app-level.md](docs/ime-app-level.md) —— 应用层 fcitx5：为 Qt 6.11 源码编译插件（备选方案）
 * [docs/fcitx-plasma67-modifiers.md](docs/fcitx-plasma67-modifiers.md) —— Plasma 6.7+ 下 fcitx5 吞修饰键的根因（上游 a05d898f）与补丁安装
 * [notes/packaging-deb.md](notes/packaging-deb.md) —— 把 /opt/kde6 打成 .deb + meta 包的方案
