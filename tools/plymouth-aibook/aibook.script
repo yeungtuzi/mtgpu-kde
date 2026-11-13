@@ -6,8 +6,8 @@
 Window.SetBackgroundTopColor(0, 0, 0);
 Window.SetBackgroundBottomColor(0, 0, 0);
 
-FRAME_COUNT = 24;
-TICKS_PER_FRAME = 6;   # script plugin refreshes at 50 Hz -> 2.88 s per loop
+FRAME_COUNT = 4;
+TICKS_PER_FRAME = 35;  # script plugin refreshes at 50 Hz -> 0.7 s per corner
 
 for (i = 0; i < FRAME_COUNT; i++) {
   if (i < 10) {

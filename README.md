@@ -301,7 +301,7 @@ GPU 管线也相同（`mtgpu_dri.so` / `libEGL_mtgpu.so` / `mtgpu_drv_video*.so`
   `plymouth.ignore-serial-consoles`，否则 Plymouth 会退回 `details` 文本插件；
 - Plymouth 在 2880×1800 面板上自动启用 **device_scale=2**，`Window.GetWidth()` 是逻辑 1440，
   所以素材要用 **360px**（物理 720，与 ksplash 的 `min(W/4,H/2)` 一致），用 720px 会显示成两倍大；
-- 动画改为**预合成 24 帧**（`gen-frames.py`），脚本只做 `SetImage` 循环；运行时用 `SetOpacity`/`Math.Sin` 在本机实测会停在"四角全亮"的静态画面；
+- 动画改为**预合成 4 帧**（`gen-frames.py`，每帧只亮一个角）：gdm 会在任意时刻冻结当前帧，正弦渐变容易停在"两角半亮"像没画完；脚本只做 `SetImage` 循环；
 - **不要加 `plymouth.debug`**：开启后 plymouthd 会接管并转发控制台消息，启动时先闪一段文本屏。
 
 细节与上游源码依据：[docs/plymouth-splash.md](docs/plymouth-splash.md)。

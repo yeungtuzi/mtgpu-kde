@@ -7,8 +7,8 @@
 | 文件 | 作用 |
 |---|---|
 | `aibook.plymouth` | `ModuleName=script`，指向 `aibook.script` |
-| `aibook.script` | 循环播放 24 张预合成帧（2.88s 一循环），帧画面即 ksplash 的四角依次上色 |
-| `gen-frames.py` | 按 ksplash 的正弦相位把素材合成为 24 帧 360px PNG |
+| `aibook.script` | 循环播放 4 张预合成帧（每帧 0.7s，只亮一个角），顺序同 ksplash |
+| `gen-frames.py` | 合成 4 张 360px PNG，每张只有一角点亮（左下→左上→右上→右下） |
 | `hook-plymouth-aibook` | initramfs hook：把主题与 `script.so` 打进 initramfs |
 
 安装：[tools/install-plymouth-aibook.sh](../tools/install-plymouth-aibook.sh)（幂等，最后自动 `update-initramfs -u`）。
@@ -55,8 +55,11 @@ Plymouth 的 `script` 插件虽然提供 `Sprite.SetOpacity` / `Math.Sin` / `Set
 `aibook.script` 只做 `progress++` 与 `frame_sprite.SetImage(frame_image[...])`
 （这是多个上游 Plymouth 主题验证过的写法，见 `catppuccin_sliced` / `simple-hypr`）。
 
-帧率：script 插件默认 50Hz 刷新，每 6 次刷新换一帧 → 24×6/50 ≈ **2.88s** 一循环，
-与 ksplash 的 2800ms 基本一致。
+为什么不是正弦渐变而是"离散角"：gdm 在任意时刻会 `plymouth deactivate` 冻结当前帧，
+如果用作平滑的 sin 过渡，很可能停在"两角半亮"的状态，看起来像没渲染完。
+因此改为 4 张单角帧：每 35 次刷新换一帧（50Hz → 0.7s/角），任何时刻被冻结都是"一角亮"的完整画面。
+
+注：ksplash 本身仍是平滑正弦动画；Plymouth 的 4 帧只负责覆盖 gdm 接管的这段。
 
 ## 动画只播放一圈就停住？——GDM 接管 VT
 
