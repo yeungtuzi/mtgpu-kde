@@ -292,6 +292,20 @@ GPU 管线也相同（`mtgpu_dri.so` / `libEGL_mtgpu.so` / `mtgpu_drv_video*.so`
 **建议**：观看 HDR 视频时使用 **157.0.8103.38 内核的浏览器**（系统 Chrome 或自编 mtgpu-chromium，
 两者均已实测正常）；Brave 用于其它场景，待上游真正修复后再复测（判据：**花屏消失 且 HDR 流仍能拿到**）。
 
+### 9. Plymouth 启动画面：与 ksplash 一致、不出文本控制台
+
+主题与脚本在 [tools/plymouth-aibook](tools/plymouth-aibook)，安装脚本
+[tools/install-plymouth-aibook.sh](tools/install-plymouth-aibook.sh)。要点：
+
+- 本机固件通过 ACPI **SPCR** 声明串口控制台（`ttyS0`），内核参数必须带
+  `plymouth.ignore-serial-consoles`，否则 Plymouth 会退回 `details` 文本插件；
+- Plymouth 在 2880×1800 面板上自动启用 **device_scale=2**，`Window.GetWidth()` 是逻辑 1440，
+  所以素材要用 **360px**（物理 720，与 ksplash 的 `min(W/4,H/2)` 一致），用 720px 会显示成两倍大；
+- 动画必须显式 `Plymouth.SetRefreshRate(30)`，否则 `SetRefreshFunction` 不会周期回调（看起来是静态图）；
+- **不要加 `plymouth.debug`**：开启后 plymouthd 会接管并转发控制台消息，启动时先闪一段文本屏。
+
+细节与上游源码依据：[docs/plymouth-splash.md](docs/plymouth-splash.md)。
+
 ## 构建策略
 
 * **全部源码构建**：Qt 6.11.3 → KDE Frameworks 6.31 → Plasma 6.8.2。
@@ -318,6 +332,7 @@ GPU 管线也相同（`mtgpu_dri.so` / `libEGL_mtgpu.so` / `mtgpu_drv_video*.so`
 * [notes/hdr-driver-findings.md](notes/hdr-driver-findings.md) —— 驱动能力实测（P0，仍有效）
 * [CONFIG.md](CONFIG.md) —— 安装后配置清单（fcitx5 / EDR / 回退）
 * [docs/backlight-edr-dbus.md](docs/backlight-edr-dbus.md) —— 亮度滑块 / EDR 选项消失的根因（backlighthelper 被系统包覆盖）与防覆盖
+* [docs/plymouth-splash.md](docs/plymouth-splash.md) —— Plymouth 主题（serial console / HiDPI 缩放 / 动画刷新率）
 * [docs/ime-app-level.md](docs/ime-app-level.md) —— 应用层 fcitx5：为 Qt 6.11 源码编译插件（备选方案）
 * [docs/fcitx-plasma67-modifiers.md](docs/fcitx-plasma67-modifiers.md) —— Plasma 6.7+ 下 fcitx5 吞修饰键的根因（上游 a05d898f）与补丁安装
 * [notes/packaging-deb.md](notes/packaging-deb.md) —— 把 /opt/kde6 打成 .deb + meta 包的方案

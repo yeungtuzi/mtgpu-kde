@@ -1,0 +1,55 @@
+# AIBook splash: static grey rabbit icon with four coloured frame quadrants
+# fading in/out by phase, mirroring the KDE ksplash (org.aibook.splash).
+Window.SetBackgroundTopColor(0, 0, 0);
+Window.SetBackgroundBottomColor(0, 0, 0);
+
+W = Window.GetWidth();
+H = Window.GetHeight();
+
+base_img = Image("icon-gray-360.png");
+qtl_img = Image("q-tl-360.png");
+qtr_img = Image("q-tr-360.png");
+qbr_img = Image("q-br-360.png");
+qbl_img = Image("q-bl-360.png");
+
+ix = (W - base_img.GetWidth()) / 2;
+iy = (H - base_img.GetHeight()) / 2;
+
+base = Sprite(base_img);
+base.SetX(ix);
+base.SetY(iy);
+base.SetZ(1);
+
+qtl = Sprite(qtl_img);
+qtl.SetX(ix);
+qtl.SetY(iy);
+qtl.SetZ(2);
+
+qtr = Sprite(qtr_img);
+qtr.SetX(ix);
+qtr.SetY(iy);
+qtr.SetZ(3);
+
+qbr = Sprite(qbr_img);
+qbr.SetX(ix);
+qbr.SetY(iy);
+qbr.SetZ(4);
+
+qbl = Sprite(qbl_img);
+qbl.SetX(ix);
+qbl.SetY(iy);
+qbl.SetZ(5);
+
+phase = 0;
+
+Plymouth.SetRefreshRate(30);
+
+fun refresh_callback () {
+  phase = phase + 0.0748;
+  qtl.SetOpacity(Math.Max(0, Math.Sin(phase)));
+  qtr.SetOpacity(Math.Max(0, Math.Sin(phase - 1.5708)));
+  qbr.SetOpacity(Math.Max(0, Math.Sin(phase - 3.1416)));
+  qbl.SetOpacity(Math.Max(0, Math.Sin(phase - 4.7124)));
+}
+
+Plymouth.SetRefreshFunction(refresh_callback);

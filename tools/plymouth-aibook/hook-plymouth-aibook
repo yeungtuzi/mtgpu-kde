@@ -1,0 +1,11 @@
+#!/bin/sh
+# initramfs hook: put the aibook Plymouth theme and the script plugin into the
+# initramfs.  Keep PREREQ="plymouth" so the stock plymouth hook has already
+# copied plymouthd/libs by the time this runs.
+PREREQ="plymouth"
+prereqs() { echo "$PREREQ"; }
+case "$1" in prereqs) prereqs; exit 0;; esac
+. /usr/share/initramfs-tools/hook-functions
+mkdir -p "${DESTDIR}/usr/share/plymouth/themes/aibook"
+cp -a /usr/share/plymouth/themes/aibook/. "${DESTDIR}/usr/share/plymouth/themes/aibook/"
+copy_exec /usr/lib/aarch64-linux-gnu/plymouth/script.so /usr/lib/aarch64-linux-gnu/plymouth/
