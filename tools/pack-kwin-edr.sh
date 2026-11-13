@@ -16,7 +16,7 @@ STAGE=$(mktemp -d "$HOME/.cache/kwin-edr.XXXXXX")
 
 mkdir -p "$OUT"
 DESTDIR="$STAGE/install" cmake --install "$BUILD" >/dev/null
-SRC=$(echo "$STAGE"/install/opt/kwin-patched)
+SRC="$STAGE/install$PREFIX"
 [ -d "$SRC" ] || { echo "no staged tree" >&2; exit 1; }
 
 mkdir -p "$STAGE/pkg$PREFIX"
