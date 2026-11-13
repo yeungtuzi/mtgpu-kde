@@ -32,6 +32,11 @@ done
 # real install prefix.
 find "$STAGE/pkg" -type f \( -name '*.service' -o -name '*.desktop' -o -name '*.knsrc' -o -name '*.h' -o -name '*.cmake' -o -name '*.pc' \) \
   -exec sed -i 's#/opt/kwin-patched#/opt/kde6#g' {} +
+BAD=$(grep -rl "/opt/kwin-patched" "$STAGE/pkg" 2>/dev/null | wc -l)
+if [ "$BAD" -ne 0 ]; then
+  echo "ERROR: $BAD staged files still reference the build-tree prefix /opt/kwin-patched" >&2
+  exit 1
+fi
 COUNT=$(find "$STAGE/pkg" -type f | wc -l)
 SIZE=$(du -sk "$STAGE/pkg" | cut -f1)
 mkdir -p "$STAGE/pkg/DEBIAN"
