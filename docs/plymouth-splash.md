@@ -78,7 +78,14 @@ Plymouth 在 2.2s 开始循环，**7.1s 时 gdm3 主动调用 `plymouth deactiva
 缓解方向只有缩短 gdm→KWin 的启动时间（本机 `plymouth-quit-wait` 约 21s），
 或接受"静态一帧 + ksplash 接手动画"。
 
-## 已知限制
+## 已知限制：Plymouth → ksplash 之间会闪一下黑
+
+Plymouth 在 gdm 调用 `plymouth deactivate` 后释放 DRM master，可见 VT 由 fbcon 接管（黑底），
+到 KWin 提交首帧之间会有一次很短的黑色（约 0.3s，可能带一段时间的 VT 光标）。
+实测这与 `plymouth-quit-wait` 是否屏蔽无关（回归验证过：不屏蔽同样存在），
+是 Plymouth + fbcon + KWin 交接的固有现象；彻底消除需要解绑 fbcon（会失去本地文本控制台），不推荐。
+
+## 其他限制
 
 - Plymouth 的 DRM renderer 在本机 `mtgpu` 驱动上会先报一次
   `query_device: Could not get card resources`，但仍能建出 2880×1800 的 head 并上屏
