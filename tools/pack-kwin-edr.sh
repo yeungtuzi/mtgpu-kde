@@ -24,13 +24,14 @@ mkdir -p "$STAGE/pkg$PREFIX"
 # prefix keeps them in lib/.  Map them back, otherwise libkwin.so.6.8.2 (which
 # carries every EDR patch) silently drops out of the package.
 (cd "$SRC" && find . -type f) | while read -r f; do
-  rel=${f#./}
+  src_rel=${f#./}
+  rel=$src_rel
   case "$rel" in
     lib/*-linux-gnu/*) rel="lib/${rel#lib/*-linux-gnu/}" ;;
   esac
   [ -e "$PREFIX/$rel" ] || continue          # overlay existing files only
   mkdir -p "$STAGE/pkg$PREFIX/$(dirname "$rel")"
-  cp -a "$SRC/$rel" "$STAGE/pkg$PREFIX/$rel"
+  cp -a "$SRC/$src_rel" "$STAGE/pkg$PREFIX/$rel"
 done
 [ -f "$STAGE/pkg$PREFIX/lib/libkwin.so.6.8.2" ] || {
   echo "ERROR: libkwin.so.6.8.2 missing from the staged package" >&2
