@@ -168,6 +168,21 @@ sudo systemctl restart gdm
 
 验证是否真的好了：`kscreen-doctor -j | jq '.outputs | length'` 必须 ≥ 1，而不是只看进程数。
 
+
+### 4. 菜单搜索出现 “appstream://” 无法打开的报错
+
+KRunner 的 AppStream 插件会在搜索时推荐"可安装的应用"（例如搜 camera 提示安装相机应用），
+点击需要 Discover + PackageKit 处理 `appstream://` 协议；本构建没装 Discover，于是报错。
+
+已在本机关闭该插件：
+
+```bash
+kwriteconfig6 --file krunnerrc --group Plugins --key appstreamEnabled false
+sudo mv /opt/kde6/plugins/kf6/krunner/krunner_appstream.so{,.disabled}
+```
+
+恢复：把文件改回原名并删除配置项即可。
+
 ## 构建策略
 
 * **全部源码构建**：Qt 6.11.3 → KDE Frameworks 6.31 → Plasma 6.8.2。
