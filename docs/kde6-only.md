@@ -40,3 +40,29 @@
 
 `/home/lf/backup/dpkg-before-kde5-purge.txt`、`/home/lf/backup/kde5-purge-list.txt`、
 `/home/lf/backup/block-plasma5.pin`。
+
+## 隐藏坑：polkit / D-Bus 策略也必须软链进系统
+
+purge KDE5 时，`/usr/share/polkit-1/actions/` 与 `/usr/share/dbus-1/system.d/` 里
+属于 Plasma 5 的 `.policy` / `.conf` 被一并删除。KDE6 的这些文件装在
+`/opt/kde6/share/...`，但 **polkitd 和 dbus-daemon 只读系统路径**，结果：
+
+* 托盘亮度滑块消失；
+* 亮度 / EDR 失效，日志为
+  `Error registering helper DBus service "org.kde.powerdevil.backlighthelper" ... is not allowed to own the service`
+  以及 `backlighthelper.brightness failed 8`。
+
+处置（全部软链，符合"系统里只放链接"的原则）：
+
+```bash
+for f in /opt/kde6/share/polkit-1/actions/*.policy; do
+  b=$(basename "$f"); [ -e "/usr/share/polkit-1/actions/$b" ] || sudo ln -s "$f" "/usr/share/polkit-1/actions/$b"
+done
+for f in /opt/kde6/share/dbus-1/system.d/*.conf; do
+  b=$(basename "$f"); [ -e "/usr/share/dbus-1/system.d/$b" ] || sudo ln -s "$f" "/usr/share/dbus-1/system.d/$b"
+done
+sudo systemctl reload dbus
+systemctl --user restart plasma-powerdevil.service
+```
+
+验证：`/sys/class/backlight/m1000_backlight/brightness` 可读写、托盘出现亮度滑块。
