@@ -183,6 +183,39 @@ sudo mv /opt/kde6/plugins/kf6/krunner/krunner_appstream.so{,.disabled}
 
 恢复：把文件改回原名并删除配置项即可。
 
+
+### 5. 修改 fcitx5 配置后的正确重启方式（不要 pkill）
+
+`pkill -x fcitx5` 若撞上它正在写 `~/.config/fcitx5/profile`，会把 profile 写坏，
+表现为托盘图标在、但输入法组为空、热键和托盘都切不到拼音。正确做法：
+
+```bash
+fcitx5-remote -e          # 优雅退出（保存状态）
+# 或直接原地替换，不产生空窗：
+fcitx5 -r -d
+fcitx5-remote -r          # 仅重载配置，不重启进程
+```
+
+损坏后重建 profile（示例）：
+
+```ini
+[Groups/0]
+Name=Default
+Default Layout=us
+DefaultIM=pinyin
+
+[Groups/0/Items/0]
+Name=keyboard-us
+Layout=
+
+[Groups/0/Items/1]
+Name=pinyin
+Layout=
+
+[GroupOrder]
+0=Default
+```
+
 ## 构建策略
 
 * **全部源码构建**：Qt 6.11.3 → KDE Frameworks 6.31 → Plasma 6.8.2。
