@@ -15,10 +15,14 @@ set -euo pipefail
 
 PREFIX=${KDEPREFIX:-/opt/kde6}
 
+# postinst 里以 root 运行，用户手动跑时才需要 sudo；干净 chroot 里没有 sudo。
+if [ "$(id -u)" -eq 0 ]; then SUDO=(); else SUDO=(sudo); fi
+run() { "${SUDO[@]}" "$@"; }
+
 link_dir() { # <src-dir> <dst-dir> <glob>
   local src=$1 dst=$2 pat=$3 f b
   [ -d "$src" ] || return 0
-  sudo mkdir -p "$dst"
+  run mkdir -p "$dst"
   for f in "$src"/$pat; do
     [ -e "$f" ] || continue
     b=$(basename "$f")
@@ -26,7 +30,7 @@ link_dir() { # <src-dir> <dst-dir> <glob>
       echo "  keep real file: $dst/$b"
       continue
     fi
-    [ -L "$dst/$b" ] || sudo ln -s "$f" "$dst/$b"
+    [ -L "$dst/$b" ] || run ln -s "$f" "$dst/$b"
   done
 }
 
@@ -35,16 +39,19 @@ link_dir "$PREFIX/share/polkit-1/actions" /usr/share/polkit-1/actions '*.policy'
 
 echo "== dbus system policies"
 link_dir "$PREFIX/share/dbus-1/system.d" /usr/share/dbus-1/system.d '*.conf'
-sudo systemctl reload dbus 2>/dev/null || true
+run systemctl reload dbus 2>/dev/null || true
 
 echo "== systemd user units"
 link_dir "$PREFIX/lib/systemd/user" /usr/lib/systemd/user '*.service'
 link_dir "$PREFIX/lib/systemd/user" /usr/lib/systemd/user '*.target'
 
 echo "== wayland session entry"
-if [ -f "$PREFIX/share/wayland-sessions/plasma6-kde6.desktop" ]; then
-  sudo mkdir -p /usr/share/wayland-sessions
-  sudo ln -sf "$PREFIX/share/wayland-sessions/plasma6-kde6.desktop" \
+# session 包会直接安装 /usr/share/wayland-sessions/plasma6-kde6.desktop；
+# 这里只做兜底：若包没装但 /opt 有同名文件，则软链过去。
+if [ ! -e /usr/share/wayland-sessions/plasma6-kde6.desktop ] && \
+   [ -f "$PREFIX/share/wayland-sessions/plasma6-kde6.desktop" ]; then
+  run mkdir -p /usr/share/wayland-sessions
+  run ln -sf "$PREFIX/share/wayland-sessions/plasma6-kde6.desktop" \
               /usr/share/wayland-sessions/plasma6-kde6.desktop
 fi
 

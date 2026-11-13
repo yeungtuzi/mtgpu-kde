@@ -84,9 +84,15 @@ done
 say "stage session"
 sdir="$WORK/session"
 mkdir -p "$sdir/usr/share/wayland-sessions" "$sdir/usr/share/mtgpu-kde" "$sdir/DEBIAN"
-if [ -f "$PREFIX/share/wayland-sessions/plasma6-kde6.desktop" ]; then
-  cp -a "$PREFIX/share/wayland-sessions/plasma6-kde6.desktop" "$sdir/usr/share/wayland-sessions/"
-fi
+cat > "$sdir/usr/share/wayland-sessions/plasma6-kde6.desktop" <<'DESKTOP'
+[Desktop Entry]
+Name=Plasma 6.8 (kde6-mtgpu)
+Comment=KDE Plasma 6.8.2 built in /opt/kde6
+Exec=/opt/kde6/bin/plasma6-session
+TryExec=/opt/kde6/bin/plasma6-session
+Type=Application
+DesktopNames=KDE
+DESKTOP
 cp -a "$(dirname "$0")/kde6-integration-symlinks.sh" "$sdir/usr/share/mtgpu-kde/"
 cat > "$sdir/DEBIAN/postinst" <<'POSTINST'
 #!/bin/sh
@@ -116,7 +122,8 @@ exit 0
 PRERM
 chmod 755 "$sdir/DEBIAN/postinst" "$sdir/DEBIAN/prerm"
 make_control "$sdir" "kde6-mtgpu-session" "$ARCH" "session integration (symlinks)" \
-  "network-manager, bluez, pipewire-pulse | pulseaudio, libcanberra0"
+  "dbus, polkitd, network-manager"
+echo "Recommends: bluez, pipewire-pulse | pulseaudio, libcanberra0, fcitx5, xdg-desktop-portal" >> "$sdir/DEBIAN/control"
 say "build kde6-mtgpu-session"
 dpkg-deb --root-owner-group --build "$sdir" "$OUTDIR/kde6-mtgpu-session_${VERSION}_${ARCH}.deb" >/dev/null
 

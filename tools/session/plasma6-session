@@ -1,0 +1,14 @@
+#!/bin/bash
+# Plasma 6 会话入口：只依赖 /opt/kde6，日志写到用户自己的状态目录。
+_logdir="${XDG_STATE_HOME:-$HOME/.local/state}/kde6"
+mkdir -p "$_logdir" 2>/dev/null || _logdir=
+if [ -n "$_logdir" ]; then
+  exec >>"$_logdir/plasma-session.log" 2>&1
+fi
+echo "=== session start $(date) ==="
+. /opt/kde6/env.sh
+export XDG_SESSION_TYPE=wayland
+export XDG_SESSION_DESKTOP=KDE
+export DESKTOP_SESSION=plasma
+export XDG_CURRENT_DESKTOP=KDE
+exec /opt/kde6/bin/startplasma-wayland "$@"
