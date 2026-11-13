@@ -10,7 +10,7 @@ set -euo pipefail
 
 BUILD=${BUILD:-$HOME/build/kwin-hdr/build}
 PREFIX=${PREFIX:-/opt/kde6}
-VER=${VER:-6.8.2-mtgpu5}
+VER=${VER:-6.8.2-mtgpu6}
 OUT=${OUT:-$HOME/kde6/debs/$VER}
 STAGE=$(mktemp -d "$HOME/.cache/kwin-edr.XXXXXX")
 
@@ -20,18 +20,29 @@ SRC=$(echo "$STAGE"/install/opt/kwin-patched)
 [ -d "$SRC" ] || { echo "no staged tree" >&2; exit 1; }
 
 mkdir -p "$STAGE/pkg$PREFIX"
+# The build tree installs libraries under lib/aarch64-linux-gnu/, but the real
+# prefix keeps them in lib/.  Map them back, otherwise libkwin.so.6.8.2 (which
+# carries every EDR patch) silently drops out of the package.
 (cd "$SRC" && find . -type f) | while read -r f; do
   rel=${f#./}
+  case "$rel" in
+    lib/*-linux-gnu/*) rel="lib/${rel#lib/*-linux-gnu/}" ;;
+  esac
   [ -e "$PREFIX/$rel" ] || continue          # overlay existing files only
   mkdir -p "$STAGE/pkg$PREFIX/$(dirname "$rel")"
   cp -a "$SRC/$rel" "$STAGE/pkg$PREFIX/$rel"
 done
+[ -f "$STAGE/pkg$PREFIX/lib/libkwin.so.6.8.2" ] || {
+  echo "ERROR: libkwin.so.6.8.2 missing from the staged package" >&2
+  exit 1
+}
 
 # The build tree was configured with the experimental prefix /opt/kwin-patched;
 # rewrite that string in shipped text files so units/desktop files point at the
 # real install prefix.
-find "$STAGE/pkg" -type f \( -name '*.service' -o -name '*.desktop' -o -name '*.knsrc' -o -name '*.h' -o -name '*.cmake' -o -name '*.pc' \) \
-  -exec sed -i 's#/opt/kwin-patched#/opt/kde6#g' {} +
+grep -rIl -- "/opt/kwin-patched" "$STAGE/pkg" | while read -r t; do
+  sed -i 's#/opt/kwin-patched#/opt/kde6#g' "$t"
+done
 BAD=$(grep -rl "/opt/kwin-patched" "$STAGE/pkg" 2>/dev/null | wc -l)
 if [ "$BAD" -ne 0 ]; then
   echo "ERROR: $BAD staged files still reference the build-tree prefix /opt/kwin-patched" >&2
