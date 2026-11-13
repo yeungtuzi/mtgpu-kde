@@ -1,0 +1,25 @@
+From: Weng Xuetian <wengxt@gmail.com>
+Subject: [PATCH] Modifier state need to be forwarded back to compositor (#1301)
+
+Upstream: https://github.com/fcitx/fcitx5/commit/a05d898f04dcde0a57a81e7c7b7ee8d291c9b995
+Date: 2025-03-21
+Applies to: fcitx5 5.1.7 (Ubuntu 24.04) and 5.1.12; upstream fix is not in any
+release up to and including 5.1.12.
+
+Without this, the Wayland input method frontend (waylandim, zwp_input_method_v1
+path) never sends the wp_input_method_context_v1.modifiers request back to the
+compositor. KWin 6.7+ relies on it when the input method owns the keyboard, so
+clients receive bare key codes without modifier state: Ctrl+C becomes "c",
+Shift+letter is not capitalised, etc.
+
+--- a/src/frontend/waylandim/waylandimserver.cpp
++++ b/src/frontend/waylandim/waylandimserver.cpp
+@@ -537,6 +537,8 @@
+     if (mask & server_->stateMask_.meta_mask) {
+         server_->modifiers_ |= KeyState::Meta;
+     }
++
++    ic_->modifiers(serial_, mods_depressed, mods_latched, mods_locked, group);
+ }
+ 
+ void WaylandIMInputContextV1::repeatInfoCallback(int32_t rate, int32_t delay) {

@@ -216,6 +216,33 @@ Layout=
 0=Default
 ```
 
+### 6. 亮度滑块失效 / EDR 选项消失（backlighthelper 被覆盖）
+
+症状是 `kscreen-doctor -o` 显示 `Brightness control: unsupported`、`Allow EDR: unsupported`，
+PowerDevil 日志报 `backlighthelper.brightness failed 8`。
+
+根因：系统 Plasma 5.27 的 `powerdevil` 包把
+`/usr/share/dbus-1/system-services/org.kde.powerdevil.backlighthelper.service`
+指向了 5.27 的 helper，导致 KDE 6 的 PowerDevil 注册不了亮度设备，KWin 因而没有 EDR 能力。
+修复、`dpkg-divert` / `apt-mark hold` 防覆盖步骤见
+[docs/backlight-edr-dbus.md](docs/backlight-edr-dbus.md)。
+
+### 7. 中文输入法：KWin 输入法模式 + fcitx5 修饰键补丁
+
+**最终方案**：保持 KWin 的 Wayland 输入法模式（普适，Brave/Chromium 原生 Wayland 也能用），
+并给系统的 fcitx5 `waylandim` 模块打上游补丁 `a05d898f`（把修饰键状态回传合成器）。
+否则 Plasma 6.7+ 下 Ctrl/Shift 会被吞（`Ctrl+C` 只出 `c`）。
+
+- 补丁：[patches/fcitx5-5.1.7-waylandim-modifiers.patch](patches/fcitx5-5.1.7-waylandim-modifiers.patch)
+- 安装/回滚脚本：[tools/install-fcitx-waylandim-fix.sh](tools/install-fcitx-waylandim-fix.sh)
+- 细节与上游来源：[docs/fcitx-plasma67-modifiers.md](docs/fcitx-plasma67-modifiers.md)
+
+备选方案（不推荐，Brave 无原生 Wayland HiDPI）：应用层 fcitx5 + Qt 6.11 插件，
+见 [docs/ime-app-level.md](docs/ime-app-level.md)。
+
+另外 KWin 里的 EDR 调试日志（每帧 `qWarning`，单次开机曾产生 16 万行）已改为
+仅当环境变量 `KWIN_EDR_DEBUG` 存在时输出；需要排查 EDR 时再打开。
+
 ## 构建策略
 
 * **全部源码构建**：Qt 6.11.3 → KDE Frameworks 6.31 → Plasma 6.8.2。
@@ -241,6 +268,9 @@ Layout=
 * [notes/edr-brightness-semantics.md](notes/edr-brightness-semantics.md) —— 物理亮度 / SDR 白 / headroom 的映射设计
 * [notes/hdr-driver-findings.md](notes/hdr-driver-findings.md) —— 驱动能力实测（P0，仍有效）
 * [CONFIG.md](CONFIG.md) —— 安装后配置清单（fcitx5 / EDR / 回退）
+* [docs/backlight-edr-dbus.md](docs/backlight-edr-dbus.md) —— 亮度滑块 / EDR 选项消失的根因（backlighthelper 被系统包覆盖）与防覆盖
+* [docs/ime-app-level.md](docs/ime-app-level.md) —— 应用层 fcitx5：为 Qt 6.11 源码编译插件（备选方案）
+* [docs/fcitx-plasma67-modifiers.md](docs/fcitx-plasma67-modifiers.md) —— Plasma 6.7+ 下 fcitx5 吞修饰键的根因（上游 a05d898f）与补丁安装
 * [notes/packaging-deb.md](notes/packaging-deb.md) —— 把 /opt/kde6 打成 .deb + meta 包的方案
 * [notes/lowload-baseline.md](notes/lowload-baseline.md) —— 机器低负载基线
 * [notes/network-tray-6.8.md](notes/network-tray-6.8.md) —— 补编 plasma-nm / qtkeychain / ModemManagerQt，修复 Wi-Fi 设置与系统托盘缺失
