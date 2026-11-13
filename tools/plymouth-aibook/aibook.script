@@ -21,11 +21,11 @@ frame_sprite = Sprite(frame_image[0]);
 frame_sprite.SetX((Window.GetWidth() - frame_image[0].GetWidth()) / 2);
 frame_sprite.SetY((Window.GetHeight() - frame_image[0].GetHeight()) / 2);
 
-progress = 0;
+aibook_tick = 0;
 
 fun refresh_callback () {
-  progress = progress + 1;
-  frame_sprite.SetImage(frame_image[Math.Int(progress / TICKS_PER_FRAME) % FRAME_COUNT]);
+  aibook_tick = aibook_tick + 1;
+  frame_sprite.SetImage(frame_image[Math.Int(aibook_tick / TICKS_PER_FRAME) % FRAME_COUNT]);
 }
 
 Plymouth.SetRefreshFunction(refresh_callback);
