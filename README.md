@@ -152,6 +152,22 @@ EOF
 systemctl --user daemon-reload
 ```
 
+
+### 3. 黑屏只有光标（重启会话后）
+
+**不要**直接 `systemctl restart gdm`：旧 KWin 还占着 DRM master 时新实例会拿不到输出，
+表现为 KWin 在跑、plasmashell 在跑，但 `kscreen-doctor` 显示 **0 个输出**、屏幕只有光标。
+
+正确重启顺序：
+
+```bash
+systemctl --user stop plasma-kwin_wayland.service plasma-plasmashell.service
+sleep 5
+sudo systemctl restart gdm
+```
+
+验证是否真的好了：`kscreen-doctor -j | jq '.outputs | length'` 必须 ≥ 1，而不是只看进程数。
+
 ## 构建策略
 
 * **全部源码构建**：Qt 6.11.3 → KDE Frameworks 6.31 → Plasma 6.8.2。
