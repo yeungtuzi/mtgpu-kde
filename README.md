@@ -250,6 +250,16 @@ PowerDevil 日志报 `backlighthelper.brightness failed 8`。
 两者 `media-internals` 的 `kVideoTracks` 完全相同（`hevc main 10`、3840×2160、BT2020/PQ/LIMITED），
 GPU 管线也相同（`mtgpu_dri.so` / `libEGL_mtgpu.so` / `mtgpu_drv_video*.so` / `libva`）。
 
+**同版本对照（本机实测）**：
+
+| 浏览器 | Chromium 内核 | HDR 播放 |
+|---|---|---|
+| Google Chrome（系统安装，已 `apt-mark hold`） | 157.0.8103.**38** | **正常** |
+| 自建 mtgpu-chromium | 157.0.8103.**38** | **正常** |
+| Brave 1.99.57 | 157.0.8103.**79** | **花屏** |
+
+即：**157.0.8103.38 及以前正常，.79 起出现该花屏**。
+
 **已排除**：
 - KWin EDR：把 `Allow EDR` 设为 Never 后仍然花屏；
 - dmabuf 零拷贝：`--disable-gpu-memory-buffer-video-frames` 无效；
