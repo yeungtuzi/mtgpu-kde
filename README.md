@@ -39,6 +39,16 @@
   于是 **HDR1000 内容不再是"裁到 500"，而是滚降映射，观感接近 TrueBlack HDR500**。
 * SDR 参考白仍随亮度滑条变化，未受影响。
 
+
+![Brave 播放四段亮度条（100/203/500/1000 nit，40% 亮度）](screenshots/edr-brave-4band.png)
+
+*Brave 1.99.57 播放 `hdr-bars.mp4`：四段亮度条在面板上可分辨；截屏经 SDR 抓取会把 SDR 白以上的高光压到一起，
+所以第 3、4 段在图上接近纯白，实际观感中 1000 nit 段更亮。*
+
+![BT.2390 滚降映射曲线](screenshots/edr-tonemap-curve.png)
+
+*实测映射：100→65.5、203→135.4、500→338.5、1000→500 nit（面板峰值），高于 1000 nit 的部分由 EETF 压平。*
+
 实测（同一台 AIBOOK，`hdr-bars.mp4` 四段 100/203/500/1000 nit）：
 
 | 浏览器 | VPU 硬解 | EDR |
