@@ -58,6 +58,23 @@ Plymouth 的 `script` 插件虽然提供 `Sprite.SetOpacity` / `Math.Sin` / `Set
 帧率：script 插件默认 50Hz 刷新，每 6 次刷新换一帧 → 24×6/50 ≈ **2.88s** 一循环，
 与 ksplash 的 2800ms 基本一致。
 
+## 动画只播放一圈就停住？——GDM 接管 VT
+
+`plymouth.debug` 日志可见：
+
+```
+00:00:07.150 connection is from pid 1704 (plymouth deactivate) with parent pid 1697 (/usr/sbin/gdm3)
+00:00:07.082 on_deactivate: deactivating   -> 动画定时器被移除
+```
+
+Plymouth 在 2.2s 开始循环，**7.1s 时 gdm3 主动调用 `plymouth deactivate`**：
+显示管理器要让自己的 compositor 拿到 DRM master，Plymouth 必须释放显示通道。
+之后 Plymouth 只能把最后一帧留在 framebuffer 上，**无法继续动画**，直到 KWin/ksplash 接管。
+这不是脚本错误，而是 Plymouth→显示管理器的交接机制。
+
+缓解方向只有缩短 gdm→KWin 的启动时间（本机 `plymouth-quit-wait` 约 21s），
+或接受"静态一帧 + ksplash 接手动画"。
+
 ## 已知限制
 
 - Plymouth 的 DRM renderer 在本机 `mtgpu` 驱动上会先报一次
