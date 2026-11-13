@@ -7,8 +7,8 @@
 | 文件 | 作用 |
 |---|---|
 | `aibook.plymouth` | `ModuleName=script`，指向 `aibook.script` |
-| `aibook.script` | 灰色兔头 + 四个彩色象限按相位正弦淡入淡出（2.8s 一循环） |
-| `gen-assets.sh` | 从 ksplash 的 `org.aibook.splash` 素材生成 360/720 两套 PNG |
+| `aibook.script` | 循环播放 24 张预合成帧（2.88s 一循环），帧画面即 ksplash 的四角依次上色 |
+| `gen-frames.py` | 按 ksplash 的正弦相位把素材合成为 24 帧 360px PNG |
 | `hook-plymouth-aibook` | initramfs hook：把主题与 `script.so` 打进 initramfs |
 
 安装：[tools/install-plymouth-aibook.sh](../tools/install-plymouth-aibook.sh)（幂等，最后自动 `update-initramfs -u`）。
@@ -46,18 +46,17 @@ ksplash 的尺寸是 `min(W/4, H/2)`：逻辑 1440×900 下为 **360 逻辑像�
 若 Plymouth 主题直接用 720px 素材，就会按逻辑单位绘制成 720 → 物理 1440，也就是"两倍大"。
 所以 `aibook.script` 使用 `*-360.png`；`gen-assets.sh` 同时生成 720 版本，供 `device_scale=1` 的场景使用。
 
-## 动画为什么需要 `SetRefreshRate`
+## 动画为什么用"预合成帧"而不是运行时透明度
 
-Plymouth 的 `script` 插件默认不会周期性重绘，`Plymouth.SetRefreshFunction` 只在启动进度变化时被调用，
-表现为"主题是静态的"。必须显式设置：
+Plymouth 的 `script` 插件虽然提供 `Sprite.SetOpacity` / `Math.Sin` / `SetRefreshFunction`，
+但在本机实测：运行时透明度路径不可靠——启动画面会长时间停在"四个象限全亮"的初始状态。
+因此改为**离线合成**：`gen-frames.py` 用 ImageMagick 按 ksplash 的公式
+（四个象限 `max(0, sin(phase - offset))` 叠加到灰色底图）预渲染 24 帧，
+`aibook.script` 只做 `progress++` 与 `frame_sprite.SetImage(frame_image[...])`
+（这是多个上游 Plymouth 主题验证过的写法，见 `catppuccin_sliced` / `simple-hypr`）。
 
-```
-Plymouth.SetRefreshRate(30);
-Plymouth.SetRefreshFunction(refresh_callback);
-```
-
-随后在回调里按 30Hz 推进相位（`2π / (2.8s × 30)` ≈ 0.0748）并更新四个象限的 `SetOpacity`，
-动画才真正连续。
+帧率：script 插件默认 50Hz 刷新，每 6 次刷新换一帧 → 24×6/50 ≈ **2.88s** 一循环，
+与 ksplash 的 2800ms 基本一致。
 
 ## 已知限制
 

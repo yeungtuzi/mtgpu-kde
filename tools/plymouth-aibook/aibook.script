@@ -1,55 +1,31 @@
-# AIBook splash: static grey rabbit icon with four coloured frame quadrants
-# fading in/out by phase, mirroring the KDE ksplash (org.aibook.splash).
+# AIBook splash: the KDE ksplash rabbit (org.aibook.splash) reproduced as a
+# pre-composited frame sequence.  Plymouth's script plugin cannot scale images
+# and its opacity/Math path proved unreliable, so gen-frames.py renders the
+# exact ksplash maths (four quadrant sprites faded by sin phase) into 24 frames
+# and this script only advances the frame index.
 Window.SetBackgroundTopColor(0, 0, 0);
 Window.SetBackgroundBottomColor(0, 0, 0);
 
-W = Window.GetWidth();
-H = Window.GetHeight();
+FRAME_COUNT = 24;
+TICKS_PER_FRAME = 6;   # script plugin refreshes at 50 Hz -> 2.88 s per loop
 
-base_img = Image("icon-gray-360.png");
-qtl_img = Image("q-tl-360.png");
-qtr_img = Image("q-tr-360.png");
-qbr_img = Image("q-br-360.png");
-qbl_img = Image("q-bl-360.png");
+for (i = 0; i < FRAME_COUNT; i++) {
+  if (i < 10) {
+    frame_image[i] = Image("frame-0" + i + ".png");
+  } else {
+    frame_image[i] = Image("frame-" + i + ".png");
+  }
+}
 
-ix = (W - base_img.GetWidth()) / 2;
-iy = (H - base_img.GetHeight()) / 2;
+frame_sprite = Sprite(frame_image[0]);
+frame_sprite.SetX((Window.GetWidth() - frame_image[0].GetWidth()) / 2);
+frame_sprite.SetY((Window.GetHeight() - frame_image[0].GetHeight()) / 2);
 
-base = Sprite(base_img);
-base.SetX(ix);
-base.SetY(iy);
-base.SetZ(1);
-
-qtl = Sprite(qtl_img);
-qtl.SetX(ix);
-qtl.SetY(iy);
-qtl.SetZ(2);
-
-qtr = Sprite(qtr_img);
-qtr.SetX(ix);
-qtr.SetY(iy);
-qtr.SetZ(3);
-
-qbr = Sprite(qbr_img);
-qbr.SetX(ix);
-qbr.SetY(iy);
-qbr.SetZ(4);
-
-qbl = Sprite(qbl_img);
-qbl.SetX(ix);
-qbl.SetY(iy);
-qbl.SetZ(5);
-
-phase = 0;
-
-Plymouth.SetRefreshRate(30);
+progress = 0;
 
 fun refresh_callback () {
-  phase = phase + 0.0748;
-  qtl.SetOpacity(Math.Max(0, Math.Sin(phase)));
-  qtr.SetOpacity(Math.Max(0, Math.Sin(phase - 1.5708)));
-  qbr.SetOpacity(Math.Max(0, Math.Sin(phase - 3.1416)));
-  qbl.SetOpacity(Math.Max(0, Math.Sin(phase - 4.7124)));
+  progress = progress + 1;
+  frame_sprite.SetImage(frame_image[Math.Int(progress / TICKS_PER_FRAME) % FRAME_COUNT]);
 }
 
 Plymouth.SetRefreshFunction(refresh_callback);

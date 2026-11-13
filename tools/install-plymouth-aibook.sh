@@ -18,8 +18,9 @@ sudo install -m 644 "$SELF/plymouth-aibook/aibook.plymouth" "$THEME/aibook.plymo
 sudo install -m 644 "$SELF/plymouth-aibook/aibook.script" "$THEME/aibook.script"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
-"$SELF/plymouth-aibook/gen-assets.sh" "$KSPLASH" "$WORK"
-sudo install -m 644 "$WORK"/*.png "$THEME"/
+"$SELF/plymouth-aibook/gen-frames.py" "$KSPLASH" "$WORK"
+sudo install -m 644 "$WORK"/frame-*.png "$THEME"/
+sudo rm -f "$THEME"/icon-gray-*.png "$THEME"/q-*.png "$THEME"/logo.png
 
 sudo install -m 755 "$SELF/plymouth-aibook/hook-plymouth-aibook" /etc/initramfs-tools/hooks/plymouth-aibook
 sudo update-initramfs -u
