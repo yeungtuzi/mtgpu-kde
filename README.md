@@ -26,6 +26,13 @@
 ![工作状态：2880×1800、200% 缩放、119.93Hz、EDR 已启用](screenshots/plasma6-working-2880x1800-edr.jpg)
 
 
+
+> **打包事故说明（2026-11-13）**：`v6.8.2-mtgpu4` 的 deb 残留了构建树前缀 `/opt/kwin-patched`
+> （含 `plasma-kwin_wayland.service`），会让接入 `/opt/kde6` 的机器 KWin 启动失败（`203/EXEC`）。
+> 该版本资产已撤回，`v6.8.2-mtgpu5` 已修正并在打包脚本里加了路径改写与校验。
+> 若你的 `/etc/xdg/systemd/user/plasma-kwin_wayland.service` 指向 `/opt/kwin-patched`，
+> 请改为 `/opt/kde6/bin/kwin_wayland_wrapper`。
+
 ## 系统级 EDR：不需要再自己编译浏览器（2026-11-13）
 
 **结论先行**：EDR 现在是**合成器（KWin）侧的能力**，`mtgpu-kde` 装好即可，
@@ -65,7 +72,7 @@
 
 ## 关键结论（2026-11-09 修正）
 
-* 本项目只做 **Plasma 6.8.2**，全部从源码构建；当前版本 **6.8.2-mtgpu4**。
+* 本项目只做 **Plasma 6.8.2**，全部从源码构建；当前版本 **6.8.2-mtgpu5**。
 * KWin 6.8 **内置 EDR 支持**，不需要补丁去"打开 EDR"：
   * `drm_output.cpp` 在「有 brightnessDevice + 内屏 + 不支持标准 HDR」时直接置 `Capability::Edr`；
   * `compositor.cpp` 会按屏幕上 HDR 内容的 `maxHdrLuminance/referenceLuminance` 动态提升"人工 HDR headroom"（上限 3×，按亮度余量封顶）；
