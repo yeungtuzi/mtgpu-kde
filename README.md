@@ -29,9 +29,14 @@
 
 > **打包事故说明（2026-11-13）**：`v6.8.2-mtgpu4` 的 deb 残留了构建树前缀 `/opt/kwin-patched`
 > （含 `plasma-kwin_wayland.service`），会让接入 `/opt/kde6` 的机器 KWin 启动失败（`203/EXEC`）。
-> 该版本资产已撤回，`v6.8.2-mtgpu5` 已修正并在打包脚本里加了路径改写与校验。
+> 该版本资产已撤回，`v6.8.2-mtgpu6` 已修正并在打包脚本里加了路径改写与校验。
 > 若你的 `/etc/xdg/systemd/user/plasma-kwin_wayland.service` 指向 `/opt/kwin-patched`，
 > 请改为 `/opt/kde6/bin/kwin_wayland_wrapper`。
+
+
+> **重要更正（2026-11-13）**：`v6.8.2-mtgpu4`/`mtgpu5` 的 deb **都没有包含 `libkwin.so.6.8.2`**
+> （打包脚本的 multiarch 路径 bug），因此 **EDR 补丁此前从未随 overlay 真正交付**；两份资产均已撤回。
+> `v6.8.2-mtgpu6` 已修复并在 chroot 与实机双重验证：1725 个文件齐全、md5 与 deb 一致、依赖 0 缺失。
 
 ## 系统级 EDR：不需要再自己编译浏览器（2026-11-13）
 
@@ -72,7 +77,7 @@
 
 ## 关键结论（2026-11-09 修正）
 
-* 本项目只做 **Plasma 6.8.2**，全部从源码构建；当前版本 **6.8.2-mtgpu5**。
+* 本项目只做 **Plasma 6.8.2**，全部从源码构建；当前版本 **6.8.2-mtgpu6**。
 * KWin 6.8 **内置 EDR 支持**，不需要补丁去"打开 EDR"：
   * `drm_output.cpp` 在「有 brightnessDevice + 内屏 + 不支持标准 HDR」时直接置 `Capability::Edr`；
   * `compositor.cpp` 会按屏幕上 HDR 内容的 `maxHdrLuminance/referenceLuminance` 动态提升"人工 HDR headroom"（上限 3×，按亮度余量封顶）；
@@ -88,6 +93,22 @@
 * 客户端现状：Chrome 157 可用（ANGLE + MTT Mesa GLES）；mpv 0.42 协议层可用，
   但本机 MT 驱动的 Vulkan Wayland WSI 报 `VK_ERROR_UNKNOWN`，且其 EGL 初始化选不到 MTT GL，
   暂时无法出画——详见 `notes/edr-peak-luminance-6.8.md` 第 5 节。
+
+
+## 原生 HDR 探索结论（2026-11-13，已结案）
+
+**结论：不做。** 面板不具备值得投入的原生 HDR 能力，现有 EDR 已是合适方案。
+
+证据：
+- 面板 EDID：制造商 **EDO**、型号 **5160**、产品串 `EE00QBA62.A`，同系列 BA63.E / BA64.A 公开标称 **400–500 nit**；
+  EDID 峰值 507.6 nit，厂商"1000 nit"仅可能是小窗口激发，日常大面积显示达不到。
+- 驱动：`mtgpu.ko 5.3.1-M1000` **没有标准 connector 属性** `HDR_OUTPUT_METADATA` / `max bpc`，
+  KWin 因此判定 `HDR: incapable`；只有私有 plane 属性 `HDR(0/1)`、`EOTF(blob)`、`GAMUT_MAP(blob)`，且无任何文档或源码。
+- 实测：独立 libdrm 工具（KWin 停止时）可正常 modeset，但无法确认 EOTF blob 语义；面板进入 HDR 模式的证据不足。
+- 收益评估：面板峰值 ~500 nit，HDR1000 内容无论如何要滚降，与现有 BT.2390 → TrueBlack HDR500 的观感差异极小；
+  强行驱动超出标称亮度还会加速 OLED 老化。
+
+结论：保留 EDR 方案，不再尝试 vendor HDR 通路。
 
 ## 构建策略
 
