@@ -36,6 +36,11 @@
 > 需要 `private/qguiapplication_p.h`，本机 Qt 安装未带 private 头，故跳过这两个子目录
 > （输入法前端平时用系统 `fcitx5-frontend-*`，不受影响）。
 
+## 可重复脚本
+
+* `tools/kde6-integration-symlinks.sh` —— 把 polkit/dbus/systemd-user/wayland-session 软链接进系统（幂等）；
+* `tools/build-kde6-extras.sh` —— 源码重编 bluez-qt(QML)、plasma-nm、plasma-pa、bluedevil、kinfocenter、fcitx5-qt/configtool 到 `/opt/kde6`。
+
 ## 备份
 
 `/home/lf/backup/dpkg-before-kde5-purge.txt`、`/home/lf/backup/kde5-purge-list.txt`、
