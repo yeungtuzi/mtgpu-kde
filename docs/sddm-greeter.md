@@ -79,7 +79,7 @@ SDDM 会扫描 `[Wayland] SessionDir` 与 `[X11] SessionDir` 两个目录，同�
 |---|---|---|
 | `plasma6-kde6.desktop`（软链） | Plasma 6.8 (kde6-mtgpu) | 默认会话 |
 | `gnome.desktop` | GNOME | 预装的 Ubuntu/GNOME 会话，独立 desktop 文件避免与 X11 项重名 |
-| `plasma6-kde6-failsafe.desktop` | Plasma 6.8 (failsafe) | `KWIN_COMPOSE=Q` 软件合成，驱动异常时兜底 |
+| `xsessions/failsafe-gnome-xorg.desktop` | Failsafe (GNOME on Xorg) | 真正的最小兜底：GNOME Shell + Xorg，不经过 KWin/mtgpu atomic DRM |
 
 ```ini
 [Wayland]
@@ -89,7 +89,10 @@ SessionDir=/usr/share/mtgpu-kde/xsessions   # 必须指向一个存在的空目�
 ```
 
 > 坑：`SessionDir=` 留空会被 SDDM 当作"用默认目录"，X11 会话（Openbox、Ubuntu Xorg、
-> GNOME Classic）会全部冒出来造成重复；必须显式指向一个空目录。
+> GNOME Classic）会全部冒出来造成重复；必须显式指向一个目录。
+>
+> failsafe 是 **X11** 会话，必须放到 `[X11] SessionDir` 指向的目录；把 X11 的 desktop
+> 放进 wayland-sessions 会被 SDDM 按 Wayland 会话启动而失败。
 
 ## 主题（mtgpu-kde）
 

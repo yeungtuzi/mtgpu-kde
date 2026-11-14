@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Failsafe (GNOME on Xorg)
+Comment=Minimal fallback: GNOME Shell on Xorg, independent of KWin/mtgpu atomic DRM
+Exec=env GNOME_SHELL_SESSION_MODE=ubuntu /usr/bin/gnome-session --session=ubuntu
+TryExec=/usr/bin/gnome-shell
+Type=Application
+DesktopNames=ubuntu;GNOME;
+X-GDM-SessionRegisters=true

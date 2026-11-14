@@ -25,8 +25,8 @@ install -d -m 755 /usr/share/mtgpu-kde/wayland-sessions /usr/share/mtgpu-kde/xse
 ln -sf /usr/share/wayland-sessions/plasma6-kde6.desktop \
        /usr/share/mtgpu-kde/wayland-sessions/plasma6-kde6.desktop
 install -m 644 "$SRC/sddm/sessions/gnome.desktop" /usr/share/mtgpu-kde/wayland-sessions/gnome.desktop
-install -m 644 "$SRC/sddm/sessions/plasma6-kde6-failsafe.desktop" \
-       /usr/share/mtgpu-kde/wayland-sessions/plasma6-kde6-failsafe.desktop
+install -m 644 "$SRC/sddm/sessions/xsessions/failsafe-gnome-xorg.desktop" \
+       /usr/share/mtgpu-kde/xsessions/failsafe-gnome-xorg.desktop
 
 echo "==> 配置 /etc/sddm.conf.d/10-mtgpu.conf"
 install -d -m 755 /etc/sddm.conf.d
