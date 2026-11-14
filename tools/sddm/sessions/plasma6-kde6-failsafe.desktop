@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
 Name=Plasma 6.8 (failsafe)
-Comment=KWin with QPainter compositing, for GPU driver problems
-Exec=env KWIN_COMPOSE=Q /opt/kde6/bin/plasma6-session
+Comment=KWin without atomic modesetting, for GPU driver problems
+Exec=env KWIN_DRM_NO_AMS=1 /opt/kde6/bin/plasma6-session
 DesktopNames=KDE
