@@ -103,3 +103,36 @@ sudo install -m 755 bin/plasma-setup-xwayland \
 另：PES 的桌面快捷方式 `~/桌面/PES控制中心.desktop` 曾经指向 `/opt/mt-pes/pes_launch.sh`
 （缺 `QT_QPA_PLATFORM=xcb` 与 XAUTHORITY），而菜单项指向 `/usr/local/bin/pes-launch`；
 两处必须指向同一个 wrapper，否则会出现"菜单能开、桌面图标不能开"的假复发。
+
+## 已知坑：桌面/菜单启动 PES 等自带 Qt 的应用失败
+
+现象：从桌面图标或应用菜单点 PES 控制中心没有反应；从终端（环境干净地）启动却正常。
+日志里是：
+
+```
+QQmlApplicationEngine failed to load component
+qrc:/qml/Main.qml:17:5: Type EcUpdateNotice unavailable
+qrc:/qml/controls/EcUpdateNotice.qml:91:14: Non-existent attached object
+```
+
+根因：PES 自带私有 Qt6，但桌面会话把 KDE6 的 QML/插件路径继承给了它：
+
+```
+QML2_IMPORT_PATH=/opt/kde6/qml:/opt/kde6/lib/qml
+QML_IMPORT_PATH=...
+QT_PLUGIN_PATH=/opt/kde6/plugins:...
+QT_QPA_PLATFORM=wayland
+```
+
+它的 QML 引擎于是去加载 KDE6 的模块，版本/ABI 不匹配即失败退出。
+
+修复：`/usr/local/bin/pes-launch` 在 exec 前隔离这些变量：
+
+```sh
+export QT_QPA_PLATFORM=xcb
+unset QML2_IMPORT_PATH QML_IMPORT_PATH QT_PLUGIN_PATH QT_QPA_PLATFORM_PLUGIN_PATH
+unset QT_QUICK_CONTROLS_STYLE QT_STYLE_OVERRIDE QT_WAYLAND_RECONNECT
+```
+
+并确保桌面图标 `~/桌面/PES控制中心.desktop` 与菜单项 `mt-pes.desktop` 的 `Exec`
+都指向这个 wrapper（两处不一致会造成"菜单能开、桌面不能开"的假复发）。
