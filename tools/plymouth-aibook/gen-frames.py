@@ -18,7 +18,9 @@ import os
 import subprocess
 import sys
 
-SIZE = 360
+# Plymouth runs the DRM renderer at device_scale=2 on this panel: a 180 px
+# image is scanned out as 360 px, matching the ksplash icon size.
+SIZE = 180
 # order matches ksplash: phase 0 lights bottom-left, then +90 degrees each step
 CORNERS = ("q-bl", "q-tl", "q-tr", "q-br")
 

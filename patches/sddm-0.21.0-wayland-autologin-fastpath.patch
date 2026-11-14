@@ -1,0 +1,28 @@
+--- a/src/daemon/Display.cpp
++++ b/src/daemon/Display.cpp
+@@ -199,7 +199,24 @@
+     }
+ 
+     bool Display::start() {
+-        return m_started || m_displayServer->start();
++        if (m_started) {
++            return true;
++        }
++        // mtgpu: a Wayland autologin does not need the greeter display server.
++        // Starting KWin directly here lets it wait for DRM (like GDM does), so
++        // it presents its first frame right after Plymouth releases the master
++        // instead of after an extra Xorg/Weston startup.
++        if (m_displayServerType == WaylandDisplayServerType
++            && (daemonApp->first || mainConfig.Autologin.Relogin.get())
++            && !mainConfig.Autologin.User.get().isEmpty()) {
++            daemonApp->first = false;
++            m_started = true;
++            if (attemptAutologin()) {
++                return true;
++            }
++            m_started = false;
++        }
++        return m_displayServer->start();
+     }
+ 
+     bool Display::attemptAutologin() {

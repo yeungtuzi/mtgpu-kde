@@ -1,0 +1,18 @@
+--- a/src/backends/drm/drm_plane.cpp
++++ b/src/backends/drm/drm_plane.cpp
+@@ -261,6 +261,15 @@
+ {
+     commit->addProperty(crtcId, 0);
+     commit->addBuffer(this, nullptr, nullptr);
++    // mtgpu: DRM properties survive KMS master handover, and mtgpu applies
++    // BT.2020/limited YCbCr even to RGB framebuffers. Leaving them set makes
++    // the next compositor (SDDM/GDM greeter) render a black screen.
++    if (colorEncoding.isValid()) {
++        commit->addEnum(colorEncoding, ColorEncoding::BT601_YCbCr);
++    }
++    if (colorRange.isValid()) {
++        commit->addEnum(colorRange, ColorRange::Limited_YCbCr);
++    }
+ }
+ 
+ void DrmPlane::releaseCurrentBuffer()

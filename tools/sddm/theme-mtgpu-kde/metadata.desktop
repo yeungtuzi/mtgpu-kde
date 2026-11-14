@@ -1,0 +1,10 @@
+[SddmGreeterTheme]
+Name=MTGPU KDE
+Description=KDE-style greeter with the aibook rabbit splash
+Author=mtgpu-kde
+Copyright=(c) 2026 mtgpu-kde
+License=MIT
+Type=sddm-theme
+Version=1.0
+Website=https://github.com/yeungtuzi/mtgpu-kde
+Screenshot=preview.png

@@ -1,0 +1,8 @@
+[Unit]
+Description=Hand the DRM master to KWin as soon as it starts
+After=sddm.service
+[Service]
+Type=oneshot
+ExecStart=/opt/kde6/libexec/plymouth-handoff
+[Install]
+WantedBy=multi-user.target

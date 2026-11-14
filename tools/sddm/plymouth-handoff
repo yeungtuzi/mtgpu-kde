@@ -1,0 +1,12 @@
+#!/bin/sh
+# 等 KWin 出现（此时它通常已初始化、在等 DRM master），立即交出 master。
+# 兜底：6 秒内没等到 KWin 也退出，避免 Plymouth 永久占屏。
+i=0
+while [ "$i" -lt 120 ]; do
+    if pgrep -f "kwin_wayland" >/dev/null 2>&1; then
+        break
+    fi
+    i=$((i + 1))
+    sleep 0.05
+done
+/usr/bin/plymouth quit --retain-splash

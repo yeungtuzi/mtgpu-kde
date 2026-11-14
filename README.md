@@ -347,6 +347,7 @@ GPU 管线也相同（`mtgpu_dri.so` / `libEGL_mtgpu.so` / `mtgpu_drv_video*.so`
 * [docs/boot-optimization.md](docs/boot-optimization.md) —— 启动速度 28s→6s 的原因与处置
 * [docs/release-mtgpu8.md](docs/release-mtgpu8.md) —— 6.8.2-mtgpu8 的 chroot 全套验证记录与运行依赖
 * [docs/kde6-only.md](docs/kde6-only.md) —— 清除 Plasma 5/KF5，只保留 /opt/kde6 的 KF6 与链接
+* [docs/sddm-greeter.md](docs/sddm-greeter.md) —— 源码编译 SDDM 0.21(Qt6)、mtgpu-kde 主题与 Plymouth 交接（含兔头 360px 对齐实测）
 * [docs/ime-app-level.md](docs/ime-app-level.md) —— 应用层 fcitx5：为 Qt 6.11 源码编译插件（备选方案）
 * [docs/fcitx-plasma67-modifiers.md](docs/fcitx-plasma67-modifiers.md) —— Plasma 6.7+ 下 fcitx5 吞修饰键的根因（上游 a05d898f）与补丁安装
 * [notes/packaging-deb.md](notes/packaging-deb.md) —— 把 /opt/kde6 打成 .deb + meta 包的方案
