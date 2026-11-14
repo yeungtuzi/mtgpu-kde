@@ -3,6 +3,10 @@
 2026-11-14 起，aibook 的显示管理器从 GDM 换成**源码编译的 SDDM 0.21.0（Qt6）**，
 安装在 `/opt/sddm`，不依赖 Ubuntu 的 `sddm` 包（该包会拉 KDE5 主题依赖，已被 apt pin 封禁）。
 
+> 状态：截至 2026-11-14，SDDM 这一套**只入库源码**，尚未打进 deb；
+> 已发布的 `6.8.2-mtgpu8` deb/安装脚本**不含** SDDM、主题和交接单元，
+> 需要按本文手动部署。下一版打包时再合并进 `kde6-mtgpu-sddm`。
+
 ## 为什么换
 
 - GDM/greeter 是 GNOME 的 mutter，KDE 会话退出后它会在 mtgpu 上渲染黑屏且无看门狗；
