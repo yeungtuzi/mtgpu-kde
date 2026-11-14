@@ -20,10 +20,13 @@ cp -a "$SRC/sddm/theme-mtgpu-kde" "$SDDM_PREFIX/share/sddm/themes/"
 chown -R root:root "$SDDM_PREFIX/share/sddm/themes/mtgpu-kde"
 chmod -R a+rX "$SDDM_PREFIX/share/sddm/themes/mtgpu-kde"
 
-echo "==> 只保留 KDE6 会话"
-install -d -m 755 /usr/share/mtgpu-kde/wayland-sessions
+echo "==> 会话清单：Plasma 6.8 (默认) / GNOME / Plasma failsafe"
+install -d -m 755 /usr/share/mtgpu-kde/wayland-sessions /usr/share/mtgpu-kde/xsessions
 ln -sf /usr/share/wayland-sessions/plasma6-kde6.desktop \
        /usr/share/mtgpu-kde/wayland-sessions/plasma6-kde6.desktop
+install -m 644 "$SRC/sddm/sessions/gnome.desktop" /usr/share/mtgpu-kde/wayland-sessions/gnome.desktop
+install -m 644 "$SRC/sddm/sessions/plasma6-kde6-failsafe.desktop" \
+       /usr/share/mtgpu-kde/wayland-sessions/plasma6-kde6-failsafe.desktop
 
 echo "==> 配置 /etc/sddm.conf.d/10-mtgpu.conf"
 install -d -m 755 /etc/sddm.conf.d

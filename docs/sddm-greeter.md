@@ -70,6 +70,27 @@ SessionDir=
 - SDDM 会读取 `/etc/sddm.conf.d/` 下**所有**文件（包括 `.bak`），
   备份配置必须移出该目录，否则会被当成有效配置。
 
+## 会话清单
+
+SDDM 会扫描 `[Wayland] SessionDir` 与 `[X11] SessionDir` 两个目录，同一 `Name`
+出现在两个目录时就会**重复显示**。这里用自建目录收敛为三项：
+
+| 文件 | 显示名 | 说明 |
+|---|---|---|
+| `plasma6-kde6.desktop`（软链） | Plasma 6.8 (kde6-mtgpu) | 默认会话 |
+| `gnome.desktop` | GNOME | 预装的 Ubuntu/GNOME 会话，独立 desktop 文件避免与 X11 项重名 |
+| `plasma6-kde6-failsafe.desktop` | Plasma 6.8 (failsafe) | `KWIN_COMPOSE=Q` 软件合成，驱动异常时兜底 |
+
+```ini
+[Wayland]
+SessionDir=/usr/share/mtgpu-kde/wayland-sessions
+[X11]
+SessionDir=/usr/share/mtgpu-kde/xsessions   # 必须指向一个存在的空目录
+```
+
+> 坑：`SessionDir=` 留空会被 SDDM 当作"用默认目录"，X11 会话（Openbox、Ubuntu Xorg、
+> GNOME Classic）会全部冒出来造成重复；必须显式指向一个空目录。
+
 ## 主题（mtgpu-kde）
 
 `tools/sddm/theme-mtgpu-kde/`：

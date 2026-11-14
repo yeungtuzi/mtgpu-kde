@@ -167,6 +167,10 @@ Item {
                             width: sessions.width
                             height: sessions.height
                             visible: ListView.isCurrentItem
+                            Component.onCompleted: {
+                                if (root.sessionIndex === 0 && String(model.name).indexOf("kde6-mtgpu") >= 0)
+                                    root.sessionIndex = index
+                            }
                             Text {
                                 anchors.centerIn: parent
                                 width: parent.width - 12
@@ -194,53 +198,53 @@ Item {
             }
         }
 
-        Rectangle {
-            id: sessionPopup
-            visible: false
-            z: 10
-            width: 210
-            height: Math.min(180, sessions.count * 28 + 8)
-            radius: 6
-            color: "#f01a1d22"
-            border.width: 1
-            border.color: "#33ffffff"
-            anchors.left: sessionPill.left
-            anchors.bottom: sessionPill.top
-            anchors.bottomMargin: 6
-            ListView {
-                anchors.fill: parent
-                anchors.margins: 4
-                model: sessionModel
-                interactive: sessions.count > 5
-                clip: true
-                delegate: Rectangle {
-                    width: ListView.view.width
-                    height: 26
-                    radius: 4
-                    color: index === root.sessionIndex ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.25) : (sessionMouse.containsMouse ? "#18ffffff" : "transparent")
-                    Text {
-                        anchors.left: parent.left
-                        anchors.leftMargin: 10
-                        anchors.right: parent.right
-                        anchors.rightMargin: 8
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: model.name
-                        color: root.fg
-                        font.pixelSize: 12
-                        elide: Text.ElideRight
-                    }
-                    MouseArea {
-                        id: sessionMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onClicked: {
-                            root.sessionIndex = index
-                            sessionPopup.visible = false
-                        }
+
+    Rectangle {
+        id: sessionPopup
+        visible: false
+        z: 10
+        width: 250
+        height: Math.min(240, sessions.count * 28 + 8)
+        radius: 6
+        color: "#f01a1d22"
+        border.width: 1
+        border.color: "#33ffffff"
+        x: 54
+        y: 130
+        ListView {
+            anchors.fill: parent
+            anchors.margins: 4
+            model: sessionModel
+            clip: true
+            interactive: sessions.count > 7
+            delegate: Rectangle {
+                width: ListView.view.width
+                height: 28
+                radius: 4
+                color: index === root.sessionIndex ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.25) : (sessionMouse.containsMouse ? "#18ffffff" : "transparent")
+                Text {
+                    anchors.left: parent.left
+                    anchors.leftMargin: 10
+                    anchors.right: parent.right
+                    anchors.rightMargin: 8
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: model.name
+                    color: root.fg
+                    font.pixelSize: 12
+                    elide: Text.ElideRight
+                }
+                MouseArea {
+                    id: sessionMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: {
+                        root.sessionIndex = index
+                        sessionPopup.visible = false
                     }
                 }
             }
         }
+    }
 
         Rectangle {
             id: loginButton
@@ -321,4 +325,5 @@ Item {
             }
         }
     }
+
 }
