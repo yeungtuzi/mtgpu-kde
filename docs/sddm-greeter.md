@@ -54,8 +54,9 @@ Current=mtgpu-kde
 ThemeDir=/opt/sddm/share/sddm/themes
 
 [Autologin]
+User=lf                       # 开机自动登录
 Session=plasma6-kde6.desktop
-Relogin=false
+Relogin=false                 # 手动注销后不自动重登，回 greeter
 
 [X11]
 SessionDir=
