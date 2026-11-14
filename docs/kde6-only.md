@@ -71,3 +71,35 @@ systemctl --user restart plasma-powerdevil.service
 ```
 
 验证：`/sys/class/backlight/m1000_backlight/brightness` 可读写、托盘出现亮度滑块。
+
+## 已知坑：Xwayland 应用按 1× 渲染（PES 等）
+
+现象：Xwayland 客户端（如摩尔线程预装的 PES 控制中心，自带 Qt6）窗口/字体只有正常一半大小，
+看起来像"没启动/启动失败"。
+
+根因：`plasma-workspace` 的 `plasma-setup-xwayland` 未被安装。KWin 在 Xwayland 启动时执行
+`$prefix/lib/$arch/libexec/plasma-setup-xwayland`，由它把 `Xft.dpi`（缩放 ×96）写入 X 资源；
+缺这个程序时 Xwayland 停留在 96 DPI。
+
+检查：
+
+```bash
+ls /opt/kde6/lib/aarch64-linux-gnu/libexec/plasma-setup-xwayland
+DISPLAY=:0 XAUTHORITY=/run/user/1000/xauth_* xrdb -query | grep Xft.dpi   # 期望 192（2×）
+```
+
+修复（仅编该 target 再装）：
+
+```bash
+cd ~/kde6/build/plasma-workspace-6.8.2
+ninja plasma-setup-xwayland
+sudo install -m 755 bin/plasma-setup-xwayland \
+  /opt/kde6/lib/aarch64-linux-gnu/libexec/plasma-setup-xwayland
+```
+
+之后重登录（或让 KWin 重新 apply scale）即可；Xft.dpi 变成 192 后，Xwayland 应用自行按 2× 渲染，
+不再依赖合成器位图拉伸（那种方式会模糊）。
+
+另：PES 的桌面快捷方式 `~/桌面/PES控制中心.desktop` 曾经指向 `/opt/mt-pes/pes_launch.sh`
+（缺 `QT_QPA_PLATFORM=xcb` 与 XAUTHORITY），而菜单项指向 `/usr/local/bin/pes-launch`；
+两处必须指向同一个 wrapper，否则会出现"菜单能开、桌面图标不能开"的假复发。
