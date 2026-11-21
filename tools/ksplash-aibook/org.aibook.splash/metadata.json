@@ -1,0 +1,10 @@
+{
+    "KPlugin": {
+        "Id": "org.aibook.splash",
+        "Name": "Aibook Rabbit",
+        "Description": "Black splash with the aibook rabbit, 4 hard-cut frames matching Plymouth",
+        "License": "MIT",
+        "Version": "1.0",
+        "Authors": [ { "Name": "mtgpu-kde" } ]
+    }
+}
