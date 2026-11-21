@@ -18,17 +18,24 @@ import os
 import subprocess
 import sys
 
-# Plymouth runs the DRM renderer at device_scale=2 on this panel: a 180 px
-# image is scanned out as 360 px, matching the ksplash icon size.
-SIZE = 180
+# On the aibook panel Plymouth's DRM renderer runs at device_scale=2: a 180 px
+# image is scanned out as 360 px.  On a plain 4K panel it renders 1:1, so pass
+# --size 480 there to keep the same 12.5%-of-screen-width proportion.
+DEFAULT_SIZE = 180
 # order matches ksplash: phase 0 lights bottom-left, then +90 degrees each step
 CORNERS = ("q-bl", "q-tl", "q-tr", "q-br")
 
 
 def main() -> int:
-    src = sys.argv[1] if len(sys.argv) > 1 else \
-        "/opt/kde6/share/plasma/look-and-feel/org.aibook.splash/contents/splash/images"
-    out = sys.argv[2] if len(sys.argv) > 2 else "frames"
+    import argparse
+
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("src", nargs="?", default="/opt/kde6/share/plasma/look-and-feel/org.aibook.splash/contents/splash/images")
+    ap.add_argument("out", nargs="?", default="frames")
+    ap.add_argument("--size", type=int, default=DEFAULT_SIZE,
+                    help="frame edge in px (180 for 2880x1800@2x, 480 for 3840x2160@1x)")
+    args = ap.parse_args()
+    src, out, SIZE = args.src, args.out, args.size
     os.makedirs(out, exist_ok=True)
     for name in ("icon-gray",) + CORNERS:
         subprocess.run(["convert", os.path.join(src, name + ".png"),

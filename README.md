@@ -344,6 +344,7 @@ GPU 管线也相同（`mtgpu_dri.so` / `libEGL_mtgpu.so` / `mtgpu_drv_video*.so`
 * [CONFIG.md](CONFIG.md) —— 安装后配置清单（fcitx5 / EDR / 回退）
 * [docs/backlight-edr-dbus.md](docs/backlight-edr-dbus.md) —— 亮度滑块 / EDR 选项消失的根因（backlighthelper 被系统包覆盖）与防覆盖
 * [docs/plymouth-splash.md](docs/plymouth-splash.md) —— Plymouth 主题（serial console / HiDPI 缩放 / 动画实现）
+* [docs/cachyos-target.md](docs/cachyos-target.md) —— 把 Plymouth / ksplash / 兔头壁纸搬到另一台 CachyOS + KDE 6.8（plasmalogin）机器
 * [docs/boot-optimization.md](docs/boot-optimization.md) —— 启动速度 28s→6s 的原因与处置
 * [docs/release-mtgpu8.md](docs/release-mtgpu8.md) —— 6.8.2-mtgpu8 的 chroot 全套验证记录与运行依赖
 * [docs/kde6-only.md](docs/kde6-only.md) —— 清除 Plasma 5/KF5，只保留 /opt/kde6 的 KF6 与链接
