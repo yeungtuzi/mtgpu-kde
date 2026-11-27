@@ -44,6 +44,8 @@ static double g_cx, g_cy;   /* rabbit centre, client coords */
 static double g_vx, g_vy;
 static double g_tx, g_ty;   /* wander target, centre coords */
 static RECT g_dirty;
+static RECT g_lastDraw;
+static double g_frameClock;
 static HDC g_scratchDC;
 static HBITMAP g_scratchBmp;
 static int g_scratchW, g_scratchH;
@@ -304,11 +306,16 @@ static RECT union_rect(const RECT *a, const RECT *b)
     return r;
 }
 
-static void step(HWND hwnd)
+static int update_motion(double dt)
 {
+    if (dt > 0.1)
+        dt = 0.1;
+    if (dt <= 0)
+        return 0;
+
     RECT prev = g_dirty;
-    const double dt = TICK_MS / 1000.0;
     double w = g_screen.right - g_screen.left;
+    double h = g_screen.bottom - g_screen.top;
     double speed = w / 9.0;
 
     double dx = g_tx - g_cx, dy = g_ty - g_cy;
@@ -321,29 +328,38 @@ static void step(HWND hwnd)
     }
     double desiredX = dist > 0.001 ? dx / dist * speed : 0;
     double desiredY = dist > 0.001 ? dy / dist * speed : 0;
-    g_vx += (desiredX - g_vx) * 0.08;
-    g_vy += (desiredY - g_vy) * 0.08;
+
+    /* frame-rate independent smoothing */
+    double k = 1.0 - exp(-dt / 0.18);
+    g_vx += (desiredX - g_vx) * k;
+    g_vy += (desiredY - g_vy) * k;
     g_cx += g_vx * dt;
     g_cy += g_vy * dt;
 
-    /* keep the sprite fully on screen */
     double half = g_size / 2.0;
     if (g_cx < half) { g_cx = half; g_vx = fabs(g_vx); pick_target(); }
     if (g_cy < half) { g_cy = half; g_vy = fabs(g_vy); pick_target(); }
     if (g_cx > w - half) { g_cx = w - half; g_vx = -fabs(g_vx); pick_target(); }
-    if (g_cy > g_screen.bottom - g_screen.top - half) {
-        g_cy = g_screen.bottom - g_screen.top - half;
-        g_vy = -fabs(g_vy);
-        pick_target();
-    }
+    if (g_cy > h - half) { g_cy = h - half; g_vy = -fabs(g_vy); pick_target(); }
 
     g_dirty.left = (LONG)(g_cx - half);
     g_dirty.top = (LONG)(g_cy - half);
     g_dirty.right = g_dirty.left + g_size;
     g_dirty.bottom = g_dirty.top + g_size;
 
-    RECT u = union_rect(&prev, &g_dirty);
-    compose_and_blit(hwnd, &u);
+    return !EqualRect(&prev, &g_dirty);
+}
+
+static int update_frame(double dt)
+{
+    int changed = 0;
+    g_frameClock += dt;
+    while (g_frameClock >= FRAME_MS / 1000.0) {
+        g_frameClock -= FRAME_MS / 1000.0;
+        g_frame = (g_frame + 1) % FRAME_COUNT;
+        changed = 1;
+    }
+    return changed;
 }
 
 static void exit_saver(HWND hwnd)
@@ -373,18 +389,11 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         g_dirty.top = (LONG)(g_cy - g_size / 2.0);
         g_dirty.right = g_dirty.left + g_size;
         g_dirty.bottom = g_dirty.top + g_size;
-        SetTimer(hwnd, ID_TICK, TICK_MS, NULL);
-        SetTimer(hwnd, ID_FRAME, FRAME_MS, NULL);
+        g_lastDraw = g_dirty;
+        g_frameClock = 0;
         SetCursor(NULL);
         return 0;
     }
-
-    case WM_TIMER:
-        if (wp == ID_TICK)
-            step(hwnd);
-        else if (wp == ID_FRAME)
-            g_frame = (g_frame + 1) % FRAME_COUNT;
-        return 0;
 
     case WM_ERASEBKGND:
         return 1;
@@ -437,8 +446,6 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         return 0;
 
     case WM_DESTROY:
-        KillTimer(hwnd, ID_TICK);
-        KillTimer(hwnd, ID_FRAME);
         return 0;
     }
     return DefWindowProcW(hwnd, msg, wp, lp);
@@ -523,12 +530,49 @@ static int run_saver(void)
     g_mouseArmed = 0;
     GetCursorPos(&g_startMouse);
 
+    /* Render loop paced by DwmFlush: one frame per composition pass, so the
+     * motion is smooth and time-based instead of relying on WM_TIMER (15.6 ms
+     * granularity, coalesced under load -> visible stutter at 6K). */
+    BOOL composition = FALSE;
+    DwmIsCompositionEnabled(&composition);
+    LARGE_INTEGER freq, prev, now;
+    QueryPerformanceFrequency(&freq);
+    QueryPerformanceCounter(&prev);
+
     MSG msg;
-    while (GetMessageW(&msg, NULL, 0, 0) > 0) {
-        TranslateMessage(&msg);
-        DispatchMessageW(&msg);
+    for (;;) {
+        LARGE_INTEGER loopStart;
+        QueryPerformanceCounter(&loopStart);
+        while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
+            if (msg.message == WM_QUIT)
+                return 0;
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+        QueryPerformanceCounter(&now);
+        double dt = (double)(now.QuadPart - prev.QuadPart) / (double)freq.QuadPart;
+        prev = now;
+        int moved = update_motion(dt);
+        int recoloured = update_frame(dt);
+        if (moved || recoloured) {
+            RECT u = union_rect(&g_lastDraw, &g_dirty);
+            compose_and_blit(hwnd, &u);
+            g_lastDraw = g_dirty;
+        }
+        if (composition)
+            DwmFlush();
+        else
+            Sleep(16);
+
+        /* DwmFlush is a no-op when the compositor is not pacing us (remote
+         * session, DWM off, Wine): don't spin at 100% CPU in that case. */
+        LARGE_INTEGER loopEnd;
+        QueryPerformanceCounter(&loopEnd);
+        double loopMs = (double)(loopEnd.QuadPart - loopStart.QuadPart) * 1000.0
+                        / (double)freq.QuadPart;
+        if (loopMs < 4.0)
+            Sleep(4);
     }
-    return 0;
 }
 
 int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
