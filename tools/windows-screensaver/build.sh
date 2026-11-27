@@ -13,6 +13,10 @@ from PIL import Image, ImageDraw, ImageFilter
 src = sys.argv[1]
 for i in range(4):
     im = Image.open(f"{src}/frame-0{i}.png").convert("RGBA")
+    # 768 px so a 6K panel still gets a 12.5%-of-width sprite (no tiny rabbit)
+    target = 768
+    if im.width != target:
+        im = im.resize((target, target), Image.LANCZOS)
     size = im.width
     mask = Image.new("L", im.size, 0)
     inset = max(2, size // 60)

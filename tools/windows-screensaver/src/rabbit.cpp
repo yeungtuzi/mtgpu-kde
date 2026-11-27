@@ -43,6 +43,9 @@ static double g_cx, g_cy;   /* rabbit centre, client coords */
 static double g_vx, g_vy;
 static double g_tx, g_ty;   /* wander target, centre coords */
 static RECT g_dirty;
+static HDC g_scratchDC;
+static HBITMAP g_scratchBmp;
+static int g_scratchW, g_scratchH;
 static POINT g_startMouse;
 static DWORD g_startTick;
 static int g_mouseArmed;
@@ -226,12 +229,11 @@ static void pick_target(void)
     g_ty = margin + frand() * (h - 2 * margin);
 }
 
-static void copy_background(HDC hdc, const RECT *r)
+static void copy_background(HDC hdc, int x, int y, int w, int h, int srcX, int srcY)
 {
-    if (!g_bgDC || IsRectEmpty(r))
+    if (!g_bgDC || w <= 0 || h <= 0)
         return;
-    BitBlt(hdc, r->left, r->top, r->right - r->left, r->bottom - r->top,
-           g_bgDC, r->left, r->top, SRCCOPY);
+    BitBlt(hdc, x, y, w, h, g_bgDC, srcX, srcY, SRCCOPY);
 }
 
 static void draw_rabbit(HDC hdc, int x, int y)
@@ -247,23 +249,53 @@ static void draw_rabbit(HDC hdc, int x, int y)
     DeleteDC(mem);
 }
 
-static void repaint_rabbit(HWND hwnd, const RECT *prev, const RECT *now)
+static void ensure_scratch(int w, int h)
 {
-    HDC hdc = GetDC(hwnd);
-    copy_background(hdc, prev);
-    if (now->left != prev->left || now->top != prev->top) {
-        /* restore background in the non-overlapping parts of the new rect */
-        RECT bands[4] = {
-            {now->left, now->top, now->right, prev->top},
-            {now->left, prev->bottom, now->right, now->bottom},
-            {now->left, prev->top, prev->left, prev->bottom},
-            {prev->right, prev->top, now->right, now->bottom},
-        };
-        for (int i = 0; i < 4; i++)
-            copy_background(hdc, &bands[i]);
+    if (g_scratchDC && g_scratchW >= w && g_scratchH >= h)
+        return;
+    if (g_scratchDC) {
+        DeleteDC(g_scratchDC);
+        DeleteObject(g_scratchBmp);
     }
-    draw_rabbit(hdc, now->left, now->top);
+    BITMAPINFO bi = {0};
+    bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bi.bmiHeader.biWidth = w;
+    bi.bmiHeader.biHeight = -h;
+    bi.bmiHeader.biPlanes = 1;
+    bi.bmiHeader.biBitCount = 32;
+    bi.bmiHeader.biCompression = BI_RGB;
+    void *bits = NULL;
+    g_scratchBmp = CreateDIBSection(NULL, &bi, DIB_RGB_COLORS, &bits, NULL, 0);
+    g_scratchDC = CreateCompatibleDC(NULL);
+    SelectObject(g_scratchDC, g_scratchBmp);
+    g_scratchW = w;
+    g_scratchH = h;
+}
+
+/* Compose the target rectangle off-screen (background + rabbit) and blit it in
+ * one operation, so the erase and the redraw can never be seen separately. */
+static void compose_and_blit(HWND hwnd, const RECT *rc)
+{
+    int w = rc->right - rc->left;
+    int h = rc->bottom - rc->top;
+    if (w <= 0 || h <= 0)
+        return;
+    ensure_scratch(w, h);
+    copy_background(g_scratchDC, 0, 0, w, h, rc->left, rc->top);
+    draw_rabbit(g_scratchDC, g_dirty.left - rc->left, g_dirty.top - rc->top);
+    HDC hdc = GetDC(hwnd);
+    BitBlt(hdc, rc->left, rc->top, w, h, g_scratchDC, 0, 0, SRCCOPY);
     ReleaseDC(hwnd, hdc);
+}
+
+static RECT union_rect(const RECT *a, const RECT *b)
+{
+    RECT r;
+    r.left = a->left < b->left ? a->left : b->left;
+    r.top = a->top < b->top ? a->top : b->top;
+    r.right = a->right > b->right ? a->right : b->right;
+    r.bottom = a->bottom > b->bottom ? a->bottom : b->bottom;
+    return r;
 }
 
 static void step(HWND hwnd)
@@ -304,7 +336,8 @@ static void step(HWND hwnd)
     g_dirty.right = g_dirty.left + g_size;
     g_dirty.bottom = g_dirty.top + g_size;
 
-    repaint_rabbit(hwnd, &prev, &g_dirty);
+    RECT u = union_rect(&prev, &g_dirty);
+    compose_and_blit(hwnd, &u);
 }
 
 static void exit_saver(HWND hwnd)
@@ -353,10 +386,15 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_PAINT: {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
-        RECT rc;
-        GetClientRect(hwnd, &rc);
-        copy_background(hdc, &rc);
-        draw_rabbit(hdc, g_dirty.left, g_dirty.top);
+        RECT rc = ps.rcPaint;
+        if (IsRectEmpty(&rc))
+            GetClientRect(hwnd, &rc);
+        ensure_scratch(rc.right - rc.left, rc.bottom - rc.top);
+        copy_background(g_scratchDC, 0, 0, rc.right - rc.left, rc.bottom - rc.top,
+                        rc.left, rc.top);
+        draw_rabbit(g_scratchDC, g_dirty.left - rc.left, g_dirty.top - rc.top);
+        BitBlt(hdc, rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top,
+               g_scratchDC, 0, 0, SRCCOPY);
         EndPaint(hwnd, &ps);
         return 0;
     }
@@ -418,6 +456,18 @@ static int run_saver(void)
     if (!build_background_cache(w, h)) {
         MessageBoxW(NULL, L"Could not prepare the background.", L"MTGPU Rabbit", MB_ICONERROR);
         return 1;
+    }
+
+    /* Per-monitor DPI aware: otherwise Windows bitmap-stretches the 6K output
+     * when display scaling is not 100%, which looks soft and can flicker. */
+    {
+        HMODULE user32 = GetModuleHandleW(L"user32.dll");
+        typedef BOOL (WINAPI *SetDpiCtx)(HANDLE);
+        SetDpiCtx setCtx = user32 ? (SetDpiCtx)GetProcAddress(user32, "SetProcessDpiAwarenessContext") : NULL;
+        if (setCtx)
+            setCtx((HANDLE)-4); /* PER_MONITOR_AWARE_V2 */
+        else
+            SetProcessDPIAware();
     }
 
     WNDCLASSEXW wc = {0};
