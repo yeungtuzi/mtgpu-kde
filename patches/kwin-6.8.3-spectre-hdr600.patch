@@ -1,0 +1,158 @@
+--- kwin-6.8.3-orig/src/opengl/glshader.cpp	2026-11-10 15:26:36.000000000 +0800
++++ kwin-6.8.3/src/opengl/glshader.cpp	2026-11-21 22:48:26.941990558 +0800
+@@ -14,6 +14,10 @@
+ #include "utils/common.h"
+ 
+ #include <QFile>
++#include "core/colorspace.h"
++#include <array>
++#include <set>
++#include <algorithm>
+ 
+ namespace KWin
+ {
+@@ -279,6 +283,16 @@
+     return location;
+ }
+ 
++bool GLShader::setUniform(const char *name, const float *values, int count)
++{
++    const int location = uniformLocation(name);
++    if (location < 0) {
++        return false;
++    }
++    glUniform1fv(location, count, values);
++    return true;
++}
++
+ bool GLShader::setUniform(Mat3Uniform uniform, const QMatrix3x3 &value)
+ {
+     resolveLocations();
+@@ -531,18 +545,69 @@
+     }
+     setUniform(FloatUniform::DestinationReferenceLuminance, dst->referenceLuminance());
+ 
+-    const double maxLuminance = src->maxHdrLuminance().value_or(src->referenceLuminance());
++    double maxLuminance = src->maxHdrLuminance().value_or(src->referenceLuminance());
++    // MTGPU-HDR600: clients (e.g. Chromium) often advertise only their reference
++    // luminance as the HDR peak, which makes KWin believe the content never
++    // exceeds the output and skip tone mapping entirely. Treat PQ content with an
++    // implausibly low peak as HDR10 (1000 nit) so BT.2390 roll-off runs.
++    if (src->transferFunction().type == TransferFunction::PerceptualQuantizer
++        && maxLuminance <= src->referenceLuminance() * 1.1) {
++        maxLuminance = 1000.0;
++    }
+     const auto &fromXYZ = src->containerColorimetry().fromXYZ();
+     const QVector3D masteringWhite = fromXYZ * (src->masteringColorimetry().white() * maxLuminance).asVector();
+     const QVector3D white = toOther.map(masteringWhite);
+     const double maxWhiteLuminance = std::max({white.x(), white.y(), white.z()});
+     const double maxOutputLuminance = dst->maxHdrLuminance().value_or(dst->referenceLuminance());
+ 
++    // MTGPU-HDR diagnostic: print each distinct (src,dst) transfer-function pair once
++    {
++        static std::set<long long> s_seen;
++        const long long key = (static_cast<long long>(int(src->transferFunction().type)) << 8)
++                            | static_cast<long long>(int(dst->transferFunction().type));
++        if (s_seen.insert(key).second) {
++            qWarning() << "MTGPU-HDR src_tf=" << int(src->transferFunction().type)
++                       << "dst_tf=" << int(dst->transferFunction().type)
++                       << "maxWhiteLum=" << maxWhiteLuminance
++                       << "maxOutputLum=" << maxOutputLuminance
++                       << "srcMaxHdr=" << src->maxHdrLuminance().value_or(-1.0)
++                       << "dstMaxHdr=" << dst->maxHdrLuminance().value_or(-1.0)
++                       << "srcRef=" << src->referenceLuminance()
++                       << "dstRef=" << dst->referenceLuminance()
++                       << "intent=" << int(intent);
++        }
++    }
+     constexpr double eta = 1.001;
+-    if (!s_disableTonemapping && maxWhiteLuminance > maxOutputLuminance * eta && intent == RenderingIntent::Perceptual) {
++    if (!s_disableTonemapping && maxWhiteLuminance > maxOutputLuminance * eta && (intent == RenderingIntent::Perceptual || dst->maxHdrLuminance().has_value())) {
+         // do tonemapping
+         setUniform(FloatUniform::MaxTonemappingLuminance, maxWhiteLuminance);
+         setUniform(FloatUniform::MaxDestinationLuminance, maxOutputLuminance);
++        // mtgpu HDR600: bake BT.2390 EETF into a 129-entry PQ-domain LUT.
++        // HDR1000 content rolls off into the panel peak instead of clipping.
++        {
++            const TransferFunction pq(TransferFunction::PerceptualQuantizer);
++            constexpr double kSrcBlack = 0.05;
++            constexpr double kDstBlack = 0.0005;
++            const double srcPeakPQ = pq.pqInverseEOTF(maxWhiteLuminance);
++            const double srcBlackPQ = pq.pqInverseEOTF(kSrcBlack);
++            const double dstBlackPQ = pq.pqInverseEOTF(kDstBlack);
++            const double range = srcPeakPQ - srcBlackPQ;
++            const double maxLum = (pq.pqInverseEOTF(maxOutputLuminance) - dstBlackPQ) / range;
++            const double ks = 1.5 * maxLum - 0.5;
++            std::array<float, 129> lut;
++            for (int i = 0; i <= 128; i++) {
++                const double e1 = std::clamp((double(i) / 128.0 - srcBlackPQ) / range, 0.0, 1.0);
++                double e2 = e1;
++                if (e1 > ks) {
++                    const double tb = (e1 - ks) / (1.0 - ks);
++                    e2 = (2.0 * tb * tb * tb - 3.0 * tb * tb + 1.0) * ks
++                       + (tb * tb * tb - 2.0 * tb * tb + tb) * (1.0 - ks)
++                       + (-2.0 * tb * tb * tb + 3.0 * tb * tb) * maxLum;
++                }
++                lut[i] = float(dstBlackPQ + e2 * range);
++            }
++            setUniform("tonemapLut", lut.data(), int(lut.size()));
++        }
+     } else {
+         // clip to src luminance
+         setUniform(FloatUniform::MaxTonemappingLuminance, maxWhiteLuminance);
+--- kwin-6.8.3-orig/src/opengl/glshader.h	2026-11-10 15:26:36.000000000 +0800
++++ kwin-6.8.3/src/opengl/glshader.h	2026-11-21 22:15:56.856387691 +0800
+@@ -44,6 +44,7 @@
+     bool setUniform(const char *name, const QVector4D &value);
+     bool setUniform(const char *name, const QMatrix3x3 &value);
+     bool setUniform(const char *name, const QMatrix4x4 &value);
++    bool setUniform(const char *name, const float *values, int count);
+     bool setUniform(const char *name, const QColor &color);
+ 
+     bool setUniform(int location, float value);
+--- kwin-6.8.3-orig/src/opengl/colormanagement.glsl	2026-11-10 15:26:36.000000000 +0800
++++ kwin-6.8.3/src/opengl/colormanagement.glsl	2026-11-21 22:15:56.857082064 +0800
+@@ -24,6 +24,8 @@
+ uniform float maxTonemappingLuminance;
+ uniform float destinationReferenceLuminance;
+ uniform float maxDestinationLuminance;
++// mtgpu HDR600: BT.2390 EETF LUT (PQ domain, 129 entries)
++uniform float tonemapLut[129];
+ 
+ uniform mat4 destinationToLMS;
+ uniform mat4 lmsToDestination;
+@@ -178,16 +180,11 @@
+     vec3 ICtCp = toICtCp * lms_PQ;
+     float luminance = singlePqToLinear(ICtCp.r) * 10000.0;
+ 
+-    // apply tone mapping operation (modified Reinhart)
+-    float relativeLuminance = max(luminance / destinationReferenceLuminance, 0.0);
+-    float inputRange = maxTonemappingLuminance / destinationReferenceLuminance;
+-    float outputRange = maxDestinationLuminance / destinationReferenceLuminance;
+-    float v = (outputRange * (1.0 + inputRange) - inputRange) / pow(inputRange, 2.0);
+-    relativeLuminance = relativeLuminance * (1.0 + relativeLuminance * v) / (1.0 + relativeLuminance);
+-    luminance = relativeLuminance * destinationReferenceLuminance;
+-
+-    // convert back to rgb
+-    ICtCp.r = singleLinearToPq(luminance / 10000.0);
++    // mtgpu HDR600: BT.2390 EETF through the precomputed LUT
++    float lutPos = clamp(ICtCp.r, 0.0, 1.0) * 128.0;
++    int lutIdx = int(floor(lutPos));
++    float lutFrac = lutPos - float(lutIdx);
++    ICtCp.r = mix(tonemapLut[lutIdx], tonemapLut[min(lutIdx + 1, 128)], lutFrac);
+     color = (lmsToDestination * vec4(pqToLinear(fromICtCp * ICtCp), 1.0)).rgb * 10000.0;
+     // and clip, to ensure out-of-gamut values are clipped to the correct white point
+     return clamp(color, vec3(0.0), vec3(maxDestinationLuminance));
+--- kwin-6.8.3-orig/src/pointer_input.cpp	2026-11-10 15:26:36.000000000 +0800
++++ kwin-6.8.3/src/pointer_input.cpp	2026-11-21 22:48:26.942496936 +0800
+@@ -249,7 +249,9 @@
+ 
+ void PointerInputRedirection::processMotion(const QPointF &delta, const QPointF &deltaNonAccelerated, std::chrono::microseconds time, InputDevice *device)
+ {
+-    if (input()->syncTabletWithMouse()) {
++    // MTGPU: during InputRedirection construction the singleton may not be set
++    // yet while libinput already delivers motion events; guard against nullptr.
++    if (input() && input()->syncTabletWithMouse()) {
+         if (const auto position = input()->takeLastPosition()) {
+             m_pos = *position;
+         }
