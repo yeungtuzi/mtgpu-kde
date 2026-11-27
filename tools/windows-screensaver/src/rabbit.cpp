@@ -52,6 +52,7 @@ static int g_scratchW, g_scratchH;
 static POINT g_startMouse;
 static DWORD g_startTick;
 static int g_mouseArmed;
+static int g_preview;
 
 static double frand(void)
 {
@@ -375,11 +376,22 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_CREATE: {
         int w = g_screen.right - g_screen.left;
         int h = g_screen.bottom - g_screen.top;
-        g_size = (int)(w * 0.125);
-        if (g_size > g_frameW)
-            g_size = g_frameW;
-        if (g_size < 96)
-            g_size = 96;
+        if (g_preview) {
+            /* small monitor thumbnail: a bit larger than 12.5% so it reads */
+            g_size = (int)(w * 0.2);
+            if (g_size > h / 2)
+                g_size = h / 2;
+            if (g_size > g_frameW)
+                g_size = g_frameW;
+            if (g_size < 24)
+                g_size = 24;
+        } else {
+            g_size = (int)(w * 0.125);
+            if (g_size > g_frameW)
+                g_size = g_frameW;
+            if (g_size < 96)
+                g_size = 96;
+        }
         g_frame = 0;
         g_cx = w / 2.0;
         g_cy = h / 2.0;
@@ -419,6 +431,8 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         return TRUE;
 
     case WM_MOUSEMOVE: {
+        if (g_preview)
+            return 0;
         POINT p;
         GetCursorPos(&p);
         if (!g_mouseArmed) {
@@ -438,7 +452,8 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_MOUSEWHEEL:
     case WM_KEYDOWN:
     case WM_SYSKEYDOWN:
-        exit_saver(hwnd);
+        if (!g_preview)
+            exit_saver(hwnd);
         return 0;
 
     case WM_CLOSE:
@@ -459,6 +474,97 @@ static BOOL CALLBACK monitor_union(HMONITOR mon, HDC hdc, LPRECT clip, LPARAM da
     if (GetMonitorInfoW(mon, &mi))
         UnionRect((RECT *)data, (RECT *)data, &mi.rcMonitor);
     return TRUE;
+}
+
+static int ensure_class(void)
+{
+    static int ready = 0;
+    if (ready)
+        return 1;
+    WNDCLASSEXW wc = {0};
+    wc.cbSize = sizeof(wc);
+    wc.lpfnWndProc = wnd_proc;
+    wc.hInstance = GetModuleHandleW(NULL);
+    wc.hCursor = NULL;
+    wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+    wc.lpszClassName = kClass;
+    if (!RegisterClassExW(&wc) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS)
+        return 0;
+    ready = 1;
+    return 1;
+}
+
+/* Shared render loop; parent != NULL means settings-preview mode (stop when the
+ * preview host window goes away). */
+static int render_loop(HWND hwnd, HWND parent)
+{
+    BOOL composition = FALSE;
+    DwmIsCompositionEnabled(&composition);
+    LARGE_INTEGER freq, prev, now;
+    QueryPerformanceFrequency(&freq);
+    QueryPerformanceCounter(&prev);
+
+    MSG msg;
+    for (;;) {
+        if (parent && !IsWindow(parent))
+            return 0;
+        LARGE_INTEGER loopStart;
+        QueryPerformanceCounter(&loopStart);
+        while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
+            if (msg.message == WM_QUIT)
+                return 0;
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+        QueryPerformanceCounter(&now);
+        double dt = (double)(now.QuadPart - prev.QuadPart) / (double)freq.QuadPart;
+        prev = now;
+        int moved = update_motion(dt);
+        int recoloured = update_frame(dt);
+        if (moved || recoloured) {
+            RECT u = union_rect(&g_lastDraw, &g_dirty);
+            compose_and_blit(hwnd, &u);
+            g_lastDraw = g_dirty;
+        }
+        if (composition)
+            DwmFlush();
+        else
+            Sleep(16);
+
+        LARGE_INTEGER loopEnd;
+        QueryPerformanceCounter(&loopEnd);
+        double loopMs = (double)(loopEnd.QuadPart - loopStart.QuadPart) * 1000.0
+                        / (double)freq.QuadPart;
+        if (loopMs < 4.0)
+            Sleep(4);
+    }
+}
+
+static int run_preview(HWND parent)
+{
+    g_preview = 1;
+    RECT rc;
+    GetClientRect(parent, &rc);
+    int w = rc.right - rc.left, h = rc.bottom - rc.top;
+    if (w <= 0 || h <= 0) { w = 160; h = 120; }
+    g_screen.left = g_screen.top = 0;
+    g_screen.right = w;
+    g_screen.bottom = h;
+
+    if (!load_assets())
+        return 1;
+    if (!build_background_cache(w, h))
+        return 1;
+    if (!ensure_class())
+        return 1;
+
+    HWND hwnd = CreateWindowExW(0, kClass, L"MTGPU Rabbit",
+                                WS_CHILD | WS_VISIBLE,
+                                0, 0, w, h,
+                                parent, NULL, GetModuleHandleW(NULL), NULL);
+    if (!hwnd)
+        return 1;
+    return render_loop(hwnd, parent);
 }
 
 static int run_saver(void)
@@ -497,21 +603,13 @@ static int run_saver(void)
         MessageBoxW(NULL, L"Could not prepare the background.", L"MTGPU Rabbit", MB_ICONERROR);
         return 1;
     }
-
-    WNDCLASSEXW wc = {0};
-    wc.cbSize = sizeof(wc);
-    wc.lpfnWndProc = wnd_proc;
-    wc.hInstance = GetModuleHandleW(NULL);
-    wc.hCursor = NULL;
-    wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
-    wc.lpszClassName = kClass;
-    if (!RegisterClassExW(&wc))
+    if (!ensure_class())
         return 1;
 
     HWND hwnd = CreateWindowExW(WS_EX_TOPMOST, kClass, L"MTGPU Rabbit",
                                 WS_POPUP | WS_VISIBLE,
                                 g_screen.left, g_screen.top, w, h,
-                                NULL, NULL, wc.hInstance, NULL);
+                                NULL, NULL, GetModuleHandleW(NULL), NULL);
     if (!hwnd)
         return 1;
 
@@ -530,49 +628,7 @@ static int run_saver(void)
     g_mouseArmed = 0;
     GetCursorPos(&g_startMouse);
 
-    /* Render loop paced by DwmFlush: one frame per composition pass, so the
-     * motion is smooth and time-based instead of relying on WM_TIMER (15.6 ms
-     * granularity, coalesced under load -> visible stutter at 6K). */
-    BOOL composition = FALSE;
-    DwmIsCompositionEnabled(&composition);
-    LARGE_INTEGER freq, prev, now;
-    QueryPerformanceFrequency(&freq);
-    QueryPerformanceCounter(&prev);
-
-    MSG msg;
-    for (;;) {
-        LARGE_INTEGER loopStart;
-        QueryPerformanceCounter(&loopStart);
-        while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
-            if (msg.message == WM_QUIT)
-                return 0;
-            TranslateMessage(&msg);
-            DispatchMessageW(&msg);
-        }
-        QueryPerformanceCounter(&now);
-        double dt = (double)(now.QuadPart - prev.QuadPart) / (double)freq.QuadPart;
-        prev = now;
-        int moved = update_motion(dt);
-        int recoloured = update_frame(dt);
-        if (moved || recoloured) {
-            RECT u = union_rect(&g_lastDraw, &g_dirty);
-            compose_and_blit(hwnd, &u);
-            g_lastDraw = g_dirty;
-        }
-        if (composition)
-            DwmFlush();
-        else
-            Sleep(16);
-
-        /* DwmFlush is a no-op when the compositor is not pacing us (remote
-         * session, DWM off, Wine): don't spin at 100% CPU in that case. */
-        LARGE_INTEGER loopEnd;
-        QueryPerformanceCounter(&loopEnd);
-        double loopMs = (double)(loopEnd.QuadPart - loopStart.QuadPart) * 1000.0
-                        / (double)freq.QuadPart;
-        if (loopMs < 4.0)
-            Sleep(4);
-    }
+    return render_loop(hwnd, NULL);
 }
 
 int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
@@ -600,13 +656,17 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     int argc = 0;
     LPWSTR *argv = CommandLineToArgvW(GetCommandLineW(), &argc);
     int mode = 's';
+    HWND previewParent = NULL;
     for (int i = 1; argv && i < argc; i++) {
         if (argv[i][0] == L'/' || argv[i][0] == L'-') {
             wchar_t c = argv[i][1];
             if (c == L'c' || c == L'C')
                 mode = 'c';
-            else if (c == L'p' || c == L'P')
+            else if (c == L'p' || c == L'P') {
                 mode = 'p';
+                if (i + 1 < argc)
+                    previewParent = (HWND)(uintptr_t)_wcstoui64(argv[i + 1], NULL, 10);
+            }
         }
     }
     if (argv)
@@ -623,8 +683,9 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
         return 0;
     }
     if (mode == 'p') {
+        int rc = previewParent ? run_preview(previewParent) : 0;
         GdiplusShutdown(token);
-        return 0;
+        return rc;
     }
 
     int rc = run_saver();
