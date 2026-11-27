@@ -289,7 +289,9 @@ static void compose_and_blit(HWND hwnd, const RECT *rc)
     ReleaseDC(hwnd, hdc);
     /* sync with the DWM composition pass: avoids the GDI blit racing the
      * desktop compositor (tearing / shimmer at high resolutions) */
-    DwmFlush();
+    BOOL composition = FALSE;
+    if (SUCCEEDED(DwmIsCompositionEnabled(&composition)) && composition)
+        DwmFlush();
 }
 
 static RECT union_rect(const RECT *a, const RECT *b)
@@ -442,6 +444,16 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     return DefWindowProcW(hwnd, msg, wp, lp);
 }
 
+static BOOL CALLBACK monitor_union(HMONITOR mon, HDC hdc, LPRECT clip, LPARAM data)
+{
+    (void)hdc; (void)clip;
+    MONITORINFO mi = {0};
+    mi.cbSize = sizeof(mi);
+    if (GetMonitorInfoW(mon, &mi))
+        UnionRect((RECT *)data, (RECT *)data, &mi.rcMonitor);
+    return TRUE;
+}
+
 static int run_saver(void)
 {
     srand((unsigned)time(NULL) ^ GetTickCount());
@@ -450,13 +462,30 @@ static int run_saver(void)
         return 1;
     }
 
-    g_screen.left = GetSystemMetrics(SM_XVIRTUALSCREEN);
-    g_screen.top = GetSystemMetrics(SM_YVIRTUALSCREEN);
-    g_screen.right = g_screen.left + GetSystemMetrics(SM_CXVIRTUALSCREEN);
-    g_screen.bottom = g_screen.top + GetSystemMetrics(SM_CYVIRTUALSCREEN);
+    /* Physical bounds of all monitors (works regardless of DPI scaling). */
+    g_screen.left = g_screen.top = g_screen.right = g_screen.bottom = 0;
+    EnumDisplayMonitors(NULL, NULL, monitor_union, (LPARAM)&g_screen);
+    if (IsRectEmpty(&g_screen)) {
+        g_screen.left = GetSystemMetrics(SM_XVIRTUALSCREEN);
+        g_screen.top = GetSystemMetrics(SM_YVIRTUALSCREEN);
+        g_screen.right = g_screen.left + GetSystemMetrics(SM_CXVIRTUALSCREEN);
+        g_screen.bottom = g_screen.top + GetSystemMetrics(SM_CYVIRTUALSCREEN);
+    }
 
     int w = g_screen.right - g_screen.left;
     int h = g_screen.bottom - g_screen.top;
+    if (w <= 0 || h <= 0) {
+        g_screen.left = 0;
+        g_screen.top = 0;
+        w = GetSystemMetrics(SM_CXSCREEN);
+        h = GetSystemMetrics(SM_CYSCREEN);
+        g_screen.right = w;
+        g_screen.bottom = h;
+    }
+    if (w <= 0 || h <= 0) {
+        MessageBoxW(NULL, L"Could not determine the screen size.", L"MTGPU Rabbit", MB_ICONERROR);
+        return 1;
+    }
     if (!build_background_cache(w, h)) {
         MessageBoxW(NULL, L"Could not prepare the background.", L"MTGPU Rabbit", MB_ICONERROR);
         return 1;
@@ -490,6 +519,14 @@ static int run_saver(void)
                                 NULL, NULL, wc.hInstance, NULL);
     if (!hwnd)
         return 1;
+
+    /* The screensaver host does not necessarily give us the foreground: make
+     * the window topmost and cover the whole virtual screen explicitly. */
+    ShowWindow(hwnd, SW_SHOW);
+    SetWindowPos(hwnd, HWND_TOPMOST, g_screen.left, g_screen.top, w, h,
+                 SWP_SHOWWINDOW);
+    SetForegroundWindow(hwnd);
+    SetActiveWindow(hwnd);
 
     ShowCursor(FALSE);
     SetCursor(NULL);
