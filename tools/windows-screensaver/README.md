@@ -1,7 +1,8 @@
 # MTGPU 兔头屏保（Windows）
 
-黑底上四处游走的四色兔头，每 700ms 切换一帧（左下 → 左上 → 右上 → 右下），
-与 aibook 的 Plymouth / ksplash 动画同节奏。支持多显示器（窗口覆盖整个虚拟桌面）。
+abstract 深蓝背景上四处游走的四色兔头（与 Linux/macOS 屏保同一张背景），
+每 700ms 切换一帧（左下 → 左上 → 右上 → 右下），与 aibook 的 Plymouth / ksplash 同节奏。
+兔头按屏宽 12.5% 缩放、带圆角透明遮罩；支持多显示器（覆盖整个虚拟桌面）。
 
 ## 安装
 
@@ -19,8 +20,9 @@ sudo apt install gcc-mingw-w64-x86-64 python3-pil
 ./build.sh          # 需要 ../ksplash-aibook 里的 4 张 480px 帧
 ```
 
-产物：`rabbit.scr`（PE32+ GUI）。帧在构建时被合成到黑底并转成 24 位 BMP 嵌入资源，
-运行时无需外部文件。
+产物：`rabbit.scr`（PE32+ GUI，静态链接，无 VC 运行库依赖）。
+背景 PNG 与 4 帧 PNG（已加圆角 alpha）作为 RCDATA 嵌入资源，运行时无需外部文件。
+背景图来自 `assets/background.png`（与 macOS 版 `bg-no-rabbit.png` 相同）。
 
 ## 参数
 
