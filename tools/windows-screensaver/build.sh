@@ -42,6 +42,6 @@ $WINDRES -I build -i build/rabbit.rc -O coff -o build/rabbit.res
 $CC -O2 -Wall -Wextra -mwindows -DUNICODE -D_UNICODE -static -static-libgcc -static-libstdc++ \
     src/rabbit.cpp build/rabbit.res \
     -o build/rabbit.scr \
-    -lgdiplus -lgdi32 -lmsimg32 -lole32 -luser32 -lshell32
+    -lgdiplus -ldwmapi -lgdi32 -lmsimg32 -lole32 -luser32 -lshell32
 cp build/rabbit.scr ./rabbit.scr
 ls -la rabbit.scr

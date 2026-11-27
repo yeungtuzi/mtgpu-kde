@@ -13,6 +13,7 @@
 #include <shellapi.h>
 #include <objidl.h>
 #include <gdiplus.h>
+#include <dwmapi.h>
 #include <math.h>
 #include <stdlib.h>
 #include <time.h>
@@ -286,6 +287,9 @@ static void compose_and_blit(HWND hwnd, const RECT *rc)
     HDC hdc = GetDC(hwnd);
     BitBlt(hdc, rc->left, rc->top, w, h, g_scratchDC, 0, 0, SRCCOPY);
     ReleaseDC(hwnd, hdc);
+    /* sync with the DWM composition pass: avoids the GDI blit racing the
+     * desktop compositor (tearing / shimmer at high resolutions) */
+    DwmFlush();
 }
 
 static RECT union_rect(const RECT *a, const RECT *b)
