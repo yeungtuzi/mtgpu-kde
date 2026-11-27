@@ -491,18 +491,6 @@ static int run_saver(void)
         return 1;
     }
 
-    /* Per-monitor DPI aware: otherwise Windows bitmap-stretches the 6K output
-     * when display scaling is not 100%, which looks soft and can flicker. */
-    {
-        HMODULE user32 = GetModuleHandleW(L"user32.dll");
-        typedef BOOL (WINAPI *SetDpiCtx)(HANDLE);
-        SetDpiCtx setCtx = user32 ? (SetDpiCtx)GetProcAddress(user32, "SetProcessDpiAwarenessContext") : NULL;
-        if (setCtx)
-            setCtx((HANDLE)-4); /* PER_MONITOR_AWARE_V2 */
-        else
-            SetProcessDPIAware();
-    }
-
     WNDCLASSEXW wc = {0};
     wc.cbSize = sizeof(wc);
     wc.lpfnWndProc = wnd_proc;
@@ -546,6 +534,20 @@ static int run_saver(void)
 int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 {
     (void)inst; (void)prev; (void)cmdline; (void)show;
+
+    /* Must happen before GDI+ or any window: otherwise it can fail and the
+     * process stays DPI-unaware, which makes the fullscreen window come out at
+     * logical (half) size on a 6K panel with 200% scaling.  The manifest does
+     * the same thing, this is just a belt-and-braces fallback. */
+    {
+        HMODULE user32 = GetModuleHandleW(L"user32.dll");
+        typedef BOOL (WINAPI *SetDpiCtx)(HANDLE);
+        SetDpiCtx setCtx = user32 ? (SetDpiCtx)GetProcAddress(user32, "SetProcessDpiAwarenessContext") : NULL;
+        if (setCtx)
+            setCtx((HANDLE)-4);
+        else
+            SetProcessDPIAware();
+    }
 
     GdiplusStartupInput gsi;
     ULONG_PTR token = 0;

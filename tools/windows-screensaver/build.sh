@@ -29,8 +29,10 @@ for i in range(4):
 print("frames -> build/frame-0*.png (rounded alpha)")
 PY
 cp assets/background.png build/background.png
+cp rabbit.manifest build/rabbit.manifest
 
 cat > build/rabbit.rc <<'RC'
+1 24 "rabbit.manifest"
 200 RCDATA "background.png"
 201 RCDATA "frame-00.png"
 202 RCDATA "frame-01.png"
